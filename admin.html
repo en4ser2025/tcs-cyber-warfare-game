@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyber Grid :: Admin Console</title>
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div id="sprite-mount"></div>
+
+<!-- ===== PIN GATE ===== -->
+<div class="pin-gate" id="pin-gate">
+  <div class="panel pin-card">
+    <span class="eyebrow">Restricted Access</span>
+    <h2 class="font-display">ADMIN CONSOLE</h2>
+    <input type="password" inputmode="numeric" maxlength="6" class="pin-input" id="pin-input" placeholder="&bull;&bull;&bull;&bull;" autocomplete="off">
+    <div class="pin-error" id="pin-error"></div>
+    <button class="btn btn-blue" id="pin-submit" style="width:100%;">Unlock</button>
+  </div>
+</div>
+
+<!-- ===== ADMIN APP (hidden until PIN accepted) ===== -->
+<div class="admin-shell" id="admin-app" style="display:none;">
+
+  <header class="header">
+    <div>
+      <h1 class="font-display" style="font-size:20px;">CYBER GRID &mdash; ADMIN</h1>
+      <div class="subtitle">Control panel &middot; not visible to players</div>
+    </div>
+    <div class="header-status">
+      <span class="conn-indicator"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">connecting&hellip;</span></span>
+      <button class="btn btn-ghost btn-sm" id="lock-btn">Lock console</button>
+    </div>
+  </header>
+
+  <div class="panel admin-toolbar">
+    <button class="btn btn-sm" id="new-game-btn">New Game</button>
+    <button class="btn btn-sm btn-blue" id="start-game-btn" disabled>Start Game (lock setup)</button>
+    <button class="btn btn-sm btn-ghost" id="end-turn-btn" disabled>End Turn</button>
+    <button class="btn btn-sm btn-ghost" id="reset-game-btn">Reset Board</button>
+    <span style="flex:1"></span>
+    <span class="pill" id="phase-pill"><span class="pill-dot"></span><span id="phase-text">SETUP</span></span>
+  </div>
+
+  <div class="admin-grid">
+
+    <!-- LEFT COLUMN: setup tools + roster status -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+
+      <div class="panel section" id="setup-panel">
+        <div class="panel-title">Setup &mdash; Place Pieces</div>
+        <div class="helper-text">
+          Select a side, pick a piece from the bank, then click an empty cell in that side's
+          deployment zone to place it. Blue deploys rows 5&ndash;7, Red deploys rows 0&ndash;2.
+        </div>
+        <div class="turn-side-toggle" style="padding: 0 12px 10px;">
+          <button class="btn btn-sm btn-blue" id="setup-side-blue">Blue Bank</button>
+          <button class="btn btn-sm btn-red" id="setup-side-red">Red Bank</button>
+          <button class="btn btn-sm btn-ghost" id="setup-clear-selection">Clear Selection</button>
+        </div>
+        <div class="setup-bank" id="setup-bank"></div>
+      </div>
+
+      <div class="panel section">
+        <div class="panel-title">Detection Meter</div>
+        <div class="section-body">
+          <div class="detection-bar-track"><div class="detection-bar-fill" id="detection-fill" style="width:0%"></div></div>
+          <div class="detection-label"><span id="detection-pct">0%</span><span>Max 100 = Blue auto-win</span></div>
+          <div style="display:flex; gap:6px; margin-top:10px;">
+            <input type="number" id="detection-adjust" class="pin-input" style="font-size:14px; letter-spacing:0; padding:6px; flex:1;" value="10" min="0" max="100">
+            <button class="btn btn-sm btn-ghost" id="detection-add-btn">+ Add</button>
+            <button class="btn btn-sm btn-ghost" id="detection-sub-btn">&minus; Sub</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section">
+        <div class="panel-title">Roster Status</div>
+        <div class="section-body" style="display:flex; gap:14px;">
+          <div style="flex:1">
+            <div class="eyebrow" style="color:var(--blue-core)">BLUE</div>
+            <div id="blue-roster-admin" class="font-mono" style="font-size:11px; margin-top:6px;"></div>
+          </div>
+          <div style="flex:1">
+            <div class="eyebrow" style="color:var(--red-core)">RED</div>
+            <div id="red-roster-admin" class="font-mono" style="font-size:11px; margin-top:6px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN: full-visibility board -->
+    <div class="panel section">
+      <div class="panel-title">Tactical Board &mdash; Full Visibility</div>
+      <div class="section-body">
+        <div class="admin-board" id="admin-board"></div>
+        <div class="helper-text" id="board-hint">Click a piece to select it, then click a destination cell.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: scenario cards + resolution -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+
+      <div class="panel section">
+        <div class="panel-title">Scenario Cards</div>
+        <div class="turn-side-toggle" style="padding: 10px 12px 0;">
+          <button class="btn btn-sm btn-blue" id="card-filter-blue">Blue Cards</button>
+          <button class="btn btn-sm btn-red" id="card-filter-red">Red Cards</button>
+        </div>
+        <div class="card-list" id="card-list"></div>
+      </div>
+
+      <div class="panel section resolve-panel" id="resolve-panel" style="display:none;">
+        <div class="panel-title" style="margin:-14px -14px 4px;">Resolve Clash</div>
+        <div class="clash-summary" id="clash-summary"></div>
+        <div class="odds-display">
+          <div class="eyebrow">Attacker Win Odds</div>
+          <div class="num font-display" id="odds-num">&mdash;%</div>
+        </div>
+        <div class="roll-row">
+          <label class="field-label" style="margin:0;">Roll (1&ndash;100)</label>
+          <input type="number" id="roll-input" min="1" max="100">
+          <button class="btn btn-sm btn-ghost" id="roll-random-btn">Random</button>
+        </div>
+        <button class="btn btn-blue" id="resolve-btn">Resolve &amp; Apply</button>
+        <button class="btn btn-ghost btn-sm" id="cancel-clash-btn">Cancel</button>
+      </div>
+
+      <div class="panel section">
+        <div class="panel-title">Move Log</div>
+        <div class="admin-log" id="admin-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Confirm modal (used for destructive actions) ===== -->
+<div class="modal-backdrop" id="confirm-modal" style="display:none;">
+  <div class="panel modal-box">
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p class="helper-text" id="confirm-body" style="padding:0;"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-red btn-sm" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script src="data/gameData.js"></script>
+<script src="js/stateShape.js"></script>
+<script src="js/firebaseConfig.js"></script>
+<script src="js/gameEngine.js"></script>
+<script src="js/adminConfig.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
