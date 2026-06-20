@@ -311,9 +311,32 @@
   }
 
   function checkSetupComplete() {
-    const blueDone = BLUE_PIECES.every(p => placedCountFor("blue", p.id) === p.count);
-    const redDone = RED_PIECES.every(p => placedCountFor("red", p.id) === p.count);
+    const blueMissing = BLUE_PIECES.filter(p => placedCountFor("blue", p.id) !== p.count);
+    const redMissing = RED_PIECES.filter(p => placedCountFor("red", p.id) !== p.count);
+    const blueDone = blueMissing.length === 0;
+    const redDone = redMissing.length === 0;
     document.getElementById("start-game-btn").disabled = !(blueDone && redDone);
+
+    const totalNeeded = BLUE_PIECES.reduce((s, p) => s + p.count, 0) + RED_PIECES.reduce((s, p) => s + p.count, 0);
+    const totalPlaced = BLUE_PIECES.reduce((s, p) => s + placedCountFor("blue", p.id), 0)
+                       + RED_PIECES.reduce((s, p) => s + placedCountFor("red", p.id), 0);
+
+    const pill = document.getElementById("setup-progress-pill");
+    const text = document.getElementById("setup-progress-text");
+    if (state.phase === "setup") {
+      pill.style.display = "inline-flex";
+      pill.className = "pill" + (blueDone && redDone ? " pill-green" : " pill-amber");
+      if (blueDone && redDone) {
+        text.textContent = `${totalPlaced}/${totalNeeded} placed — ready to start`;
+      } else {
+        const missingParts = [];
+        if (!blueDone) missingParts.push("Blue: " + blueMissing.map(p => p.short + " " + placedCountFor("blue", p.id) + "/" + p.count).join(", "));
+        if (!redDone) missingParts.push("Red: " + redMissing.map(p => p.short + " " + placedCountFor("red", p.id) + "/" + p.count).join(", "));
+        text.textContent = `${totalPlaced}/${totalNeeded} placed — missing ${missingParts.join(" | ")}`;
+      }
+    } else {
+      pill.style.display = "none";
+    }
   }
 
   function flashHint(msg) {
