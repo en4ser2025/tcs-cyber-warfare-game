@@ -271,7 +271,8 @@
         return;
       }
 
-      if (!targetUnit) {
+      // treat eliminated pieces as empty — the cell is open to move into
+      if (!targetUnit || targetUnit.eliminated) {
         // simple move
         pendingMove = { fromCell: selectedCell, toCell: key, type: "move" };
         completeSimpleMove();
@@ -305,7 +306,9 @@
     return neighbors.some(([r, c]) => {
       if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return false;
       const occupant = state.board[cellKey(r, c)];
-      return !occupant || occupant.side !== unit.side;
+      // treat eliminated pieces as empty — they no longer occupy the cell
+      if (!occupant || occupant.eliminated) return true;
+      return occupant.side !== unit.side;
     });
   }
 
@@ -407,14 +410,15 @@
     if (selectedCell && state.board[selectedCell]) {
       const { row, col } = parseCellKey(selectedCell);
       document.getElementById(`admin-cell-${row}-${col}`)?.classList.add("selected");
-      // highlight adjacent cells
+      // highlight adjacent cells — treat eliminated pieces as empty (they're gone from the board)
       [[row-1,col],[row+1,col],[row,col-1],[row,col+1]].forEach(([r,c]) => {
         if (r<0||r>=BOARD_SIZE||c<0||c>=BOARD_SIZE) return;
         const k = cellKey(r,c);
         const targetCellEl = document.getElementById(`admin-cell-${r}-${c}`);
         if (!targetCellEl) return;
         const occ = board[k];
-        if (!occ) targetCellEl.classList.add("target-valid");
+        const isEffectivelyEmpty = !occ || occ.eliminated;
+        if (isEffectivelyEmpty) targetCellEl.classList.add("target-valid");
         else if (occ.side !== state.board[selectedCell].side) targetCellEl.classList.add("target-clash");
       });
     }
