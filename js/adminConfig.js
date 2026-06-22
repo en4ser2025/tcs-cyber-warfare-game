@@ -9,4 +9,4 @@
    use this game to manage anything sensitive.
    ============================================================ */
 
-const ADMIN_PIN = "1234";
+const ADMIN_PIN = "335837";
