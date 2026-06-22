@@ -247,6 +247,10 @@
           flashHint("This piece cannot move.");
           return;
         }
+        if (!hasLegalAdjacentMove(key)) {
+          flashHint("Boxed in — every adjacent cell is occupied by a friendly piece. Pick a different piece.");
+          return;
+        }
         selectedCell = key;
         renderAdminBoard();
         return;
@@ -289,6 +293,20 @@
     const a = parseCellKey(keyA), b = parseCellKey(keyB);
     const dr = Math.abs(a.row - b.row), dc = Math.abs(a.col - b.col);
     return (dr + dc) === 1;
+  }
+
+  /** Returns true if the piece at `key` has at least one adjacent cell that's
+   *  empty or holds an enemy piece (i.e. a legal move or clash exists). */
+  function hasLegalAdjacentMove(key) {
+    const { row, col } = parseCellKey(key);
+    const unit = state.board[key];
+    if (!unit) return false;
+    const neighbors = [[row-1,col],[row+1,col],[row,col-1],[row,col+1]];
+    return neighbors.some(([r, c]) => {
+      if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return false;
+      const occupant = state.board[cellKey(r, c)];
+      return !occupant || occupant.side !== unit.side;
+    });
   }
 
   function completeSimpleMove() {
@@ -355,6 +373,7 @@
     renderCardList();
     renderAdminLog();
     renderPhaseUI();
+    renderTurnInstruction();
   }
 
   function renderAdminBoard() {
@@ -373,6 +392,14 @@
       const def = GameEngine.findPieceDef(unit.pieceId);
       const piece = document.createElement("div");
       piece.className = `admin-piece ${unit.side}`;
+
+      const isCurrentTurnSide = state.phase === "playing" && unit.side === state.turn;
+      const isImmovableType = def && def.movable === false;
+      if (isCurrentTurnSide && !isImmovableType && !hasLegalAdjacentMove(key)) {
+        piece.className += " boxed-in";
+        piece.title = "Boxed in — no legal move this turn";
+      }
+
       piece.innerHTML = `<svg><use href="#icon-${def?.icon || "shield"}"></use></svg><span class="rank-badge">${def?.short || "?"}</span>`;
       cellEl.appendChild(piece);
     });
@@ -391,6 +418,8 @@
         else if (occ.side !== state.board[selectedCell].side) targetCellEl.classList.add("target-clash");
       });
     }
+
+    renderTurnInstruction();
   }
 
   function renderRosterAdmin() {
@@ -431,6 +460,44 @@
     if (state.phase === "setup") checkSetupComplete();
   }
 
+  function renderTurnInstruction() {
+    const el = document.getElementById("turn-instruction");
+    if (!el || !state) return;
+
+    if (state.phase === "setup") {
+      el.className = "turn-instruction";
+      el.innerHTML = `<span class="step-num">i</span> Place every piece for both sides (see Setup panel), then click Start Game.`;
+      return;
+    }
+    if (state.phase === "ended") {
+      el.className = "turn-instruction step-ended";
+      el.innerHTML = `<span class="step-num">&#10003;</span> Game over — click New Game to play again.`;
+      return;
+    }
+
+    const turnSide = state.turn || "blue";
+    const turnLabel = turnSide.toUpperCase();
+
+    if (selectedCell && state.board[selectedCell]) {
+      // Step 2 in progress: a piece is selected, waiting for a destination click.
+      el.className = "turn-instruction step-move";
+      el.innerHTML = `<span class="step-num">2</span> Piece selected — click a highlighted adjacent cell to move or engage.`;
+      return;
+    }
+
+    if (selectedCardId && cardFilterSide === turnSide) {
+      // Step 1 done: a card matching the current turn's side is armed.
+      const card = SCENARIO_CARDS.find(c => c.id === selectedCardId);
+      el.className = "turn-instruction step-move";
+      el.innerHTML = `<span class="step-num">2</span> "${card ? card.name : "Card"}" selected for ${turnLabel} — now click that side's piece on the board, then a destination cell.`;
+      return;
+    }
+
+    // Step 1: nothing armed yet for the side whose turn it is.
+    el.className = "turn-instruction step-card";
+    el.innerHTML = `<span class="step-num">1</span> ${turnLabel}'s turn — pick a ${turnLabel} scenario card on the right (or skip straight to the board for a plain move), then click a piece.`;
+  }
+
   function renderAdminLog() {
     const log = (state && state.log) || {};
     const container = document.getElementById("admin-log");
@@ -456,6 +523,7 @@
     document.getElementById("card-filter-blue").classList.toggle("btn-ghost", side !== "blue");
     document.getElementById("card-filter-red").classList.toggle("btn-ghost", side !== "red");
     renderCardList();
+    renderTurnInstruction();
   }
   document.getElementById("card-filter-blue").addEventListener("click", () => cardFilterToggle("blue"));
   document.getElementById("card-filter-red").addEventListener("click", () => cardFilterToggle("red"));
@@ -481,6 +549,7 @@
           handleSpecialCard(card);
         }
         if (pendingMove && pendingMove.type === "clash") updateResolvePanel();
+        renderTurnInstruction();
       });
       list.appendChild(el);
     });

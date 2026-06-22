@@ -113,6 +113,19 @@
   outline: 2px dashed var(--amber);
   outline-offset: 1px;
 }
+.admin-piece.boxed-in {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+  position: relative;
+}
+.admin-piece.boxed-in::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(0,0,0,0.35) 0 4px, transparent 4px 8px);
+  border-radius: inherit;
+  pointer-events: none;
+}
 
 .cell-coord-admin {
   position: absolute; top: 2px; left: 3px;
@@ -178,6 +191,52 @@
 .field-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-low); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; display: block; }
 
 .helper-text { font-family: var(--font-mono); font-size: 11px; color: var(--text-low); padding: 8px 12px; line-height: 1.5; }
+
+/* --- Turn instruction banner: tells the facilitator exactly what to do next --- */
+.turn-instruction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--line-mid);
+  background: var(--bg-panel-2);
+  color: var(--text-mid);
+}
+.turn-instruction .step-num {
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-raised);
+  border: 1px solid currentColor;
+}
+.turn-instruction.step-card {
+  border-color: var(--amber);
+  background: rgba(255,182,39,0.08);
+  color: var(--amber);
+}
+.turn-instruction.step-move {
+  border-color: var(--green);
+  background: rgba(57,255,136,0.08);
+  color: var(--green);
+  animation: pulse-instruction 1.6s ease-in-out infinite;
+}
+.turn-instruction.step-ended {
+  border-color: var(--line-mid);
+  color: var(--text-low);
+}
+@keyframes pulse-instruction {
+  0%, 100% { box-shadow: 0 0 0 rgba(57,255,136,0); }
+  50% { box-shadow: 0 0 14px rgba(57,255,136,0.35); }
+}
 
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(6,9,17,0.85); backdrop-filter: blur(4px);

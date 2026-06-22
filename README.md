@@ -16,13 +16,20 @@ a laptop; everyone else watches the live board on a shared screen or projector.
 1. **Setup** — the admin places all 24 Blue pieces and 20 Red pieces on the board
    (hidden from the public display, exactly like Stratego). Blue deploys in rows 5–7,
    Red in rows 0–2. Rows 3–4 are the neutral DMZ.
-2. **Play** — teams take turns. On your turn, the facilitator picks a scenario card
-   (e.g. *Phishing Campaign*, *Incident Response*) that matches the move a team wants
-   to make, then either moves a piece into an empty square or into an opposing piece
-   to trigger a clash.
-3. **Clashes** — when pieces meet, the admin resolves the outcome using piece rank,
-   the scenario card's modifier, and a roll (manual or random). Both pieces are
-   revealed publicly when this happens.
+2. **Play** — teams take turns. Picking a scenario card does not move anything by
+   itself — it only sets the odds for whatever you do next. Each turn is a 3-click
+   sequence on the admin console:
+   1. Click a scenario card on the right that matches the acting side (e.g. *Phishing
+      Campaign* for Red) — the blue instruction banner above the board will confirm
+      it's armed and tell you what to click next. (You can also skip the card and
+      just move a piece plainly, with no modifier.)
+   2. Click that side's piece on the **Tactical Board** in the center.
+   3. Click an adjacent cell — an empty one to simply move there, or an enemy piece
+      to trigger a clash.
+   4. Click **End Turn** to pass to the other side.
+3. **Clashes** — when pieces meet, a "Resolve Clash" panel opens on the right showing
+   attacker vs. defender and the odds. Set or randomize the roll, then click
+   **Resolve & Apply**. Both pieces are revealed publicly when this happens.
 4. **Detection meter** — every attacking action carries a detection risk. If the
    meter reaches 100%, the SOC catches the intrusion and **Blue wins** instantly.
 5. **Win conditions**
@@ -243,6 +250,12 @@ Don't publicly share the admin URL/PIN — just the board link.
   inside that side's own deployment rows.
 - **"Start Game" stays disabled** — every piece in both full rosters must be placed
   first; the button auto-enables the moment counts match.
+- **A piece won't select, or selecting it doesn't highlight anywhere to move it** —
+  this is expected for back-row pieces early in the game: just like classic Stratego,
+  a piece with friendly pieces on all four adjacent sides has no legal move yet. It
+  appears dimmed/hatched on the admin board, and clicking it shows a "Boxed in" hint
+  instead of selecting it. Move the pieces in front of it first to open a path. (The
+  Critical Server piece never moves at all — that's by design, it's the objective.)
 - **Admin and board show different things** — both pages must point at the same
   Firebase project (same `js/firebaseConfig.js` file) and the same `GAME_ID` (set in
   that file, default `"default-room"`). If you want multiple simultaneous games on
