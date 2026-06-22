@@ -39,6 +39,7 @@
   <div class="panel admin-toolbar">
     <button class="btn btn-sm" id="new-game-btn">New Game</button>
     <button class="btn btn-sm btn-blue" id="start-game-btn" disabled>Start Game (lock setup)</button>
+    <button class="btn btn-sm btn-ghost" id="random-setup-btn">&#9881; Random Setup</button>
     <button class="btn btn-sm btn-ghost" id="end-turn-btn" disabled>End Turn</button>
     <button class="btn btn-sm btn-ghost" id="reset-game-btn">Reset Board</button>
     <span class="pill" id="setup-progress-pill" style="display:none;"><span class="pill-dot"></span><span id="setup-progress-text"></span></span>
@@ -49,7 +50,7 @@
   <div class="admin-grid">
 
     <!-- LEFT COLUMN: setup tools + roster status -->
-    <div style="display:flex; flex-direction:column; gap:14px;">
+    <div class="admin-side-col">
 
       <div class="panel section" id="setup-panel">
         <div class="panel-title">Setup &mdash; Place Pieces</div>
@@ -96,7 +97,7 @@
     <!-- CENTER COLUMN: full-visibility board -->
     <div class="panel section">
       <div class="panel-title">Tactical Board &mdash; Full Visibility</div>
-      <div class="section-body">
+      <div class="section-body" style="padding:6px 8px;">
         <div id="turn-instruction" class="turn-instruction"></div>
         <div class="admin-board" id="admin-board"></div>
         <div class="helper-text" id="board-hint">Click a piece to select it, then click a destination cell.</div>
@@ -104,7 +105,7 @@
     </div>
 
     <!-- RIGHT COLUMN: scenario cards + resolution -->
-    <div style="display:flex; flex-direction:column; gap:14px;">
+    <div class="admin-side-col">
 
       <div class="panel section">
         <div class="panel-title">Scenario Cards</div>

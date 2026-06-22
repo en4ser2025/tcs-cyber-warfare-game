@@ -85,11 +85,12 @@
     document.getElementById("new-game-btn").addEventListener("click", () => {
       confirmAction(
         "Start a brand new game?",
-        "This clears the board, log, and detection meter. Both teams will need to re-deploy.",
+        "This clears the board and randomly re-deploys all pieces. Click Start Game when ready.",
         () => {
           state = buildEmptyState();
-          FireState.set(state);
           selectedCell = null; setupSelectedPieceId = null;
+          // randomSetup writes to Firebase — call after resetting local state
+          randomSetup();
         }
       );
     });
@@ -116,12 +117,76 @@
       FireState.update({ phase: "playing", turn: "blue", turnNumber: 1 });
     });
 
+    document.getElementById("random-setup-btn").addEventListener("click", () => {
+      if (state && state.phase !== "setup") {
+        flashHint("Random setup is only available during the Setup phase. Click New Game first.");
+        return;
+      }
+      randomSetup();
+    });
+
     document.getElementById("end-turn-btn").addEventListener("click", () => {
       const next = state.turn === "blue" ? "red" : "blue";
       const nextTurnNumber = next === "blue" ? (state.turnNumber || 1) + 1 : state.turnNumber || 1;
       selectedCell = null; selectedCardId = null;
       FireState.update({ turn: next, turnNumber: nextTurnNumber, activeScenario: null });
     });
+  }
+
+  /**
+   * Randomly place all Blue and Red pieces in their respective deployment zones.
+   * Blue gets rows 5-7 (24 cells, exactly matching Blue's 24 pieces).
+   * Red gets rows 0-2 (24 cells available, 20 pieces placed, 4 cells left empty at random).
+   * Pieces are shuffled before placement so every run produces a unique layout.
+   */
+  function randomSetup() {
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    const board = {};
+
+    // --- Build Blue instances and shuffle ---
+    const blueInstances = [];
+    BLUE_PIECES.forEach(p => {
+      for (let i = 0; i < p.count; i++) {
+        blueInstances.push({ side: "blue", pieceId: p.id, instanceId: `blue-${p.id}-${i+1}`, revealed: false, eliminated: false });
+      }
+    });
+    const shuffledBlue = shuffle(blueInstances);
+
+    // Blue cells: all 24 cells in rows 5-7, also shuffled so pieces land in random positions
+    const blueCells = shuffle(
+      [5, 6, 7].flatMap(row => Array.from({ length: 8 }, (_, col) => cellKey(row, col)))
+    );
+    shuffledBlue.forEach((piece, i) => { board[blueCells[i]] = piece; });
+
+    // --- Build Red instances and shuffle ---
+    const redInstances = [];
+    RED_PIECES.forEach(p => {
+      for (let i = 0; i < p.count; i++) {
+        redInstances.push({ side: "red", pieceId: p.id, instanceId: `red-${p.id}-${i+1}`, revealed: false, eliminated: false });
+      }
+    });
+    const shuffledRed = shuffle(redInstances);
+
+    // Red cells: 24 available but only 20 pieces — pick 20 random cells from rows 0-2
+    const redCells = shuffle(
+      [0, 1, 2].flatMap(row => Array.from({ length: 8 }, (_, col) => cellKey(row, col)))
+    ).slice(0, shuffledRed.length); // take only as many cells as there are pieces
+    shuffledRed.forEach((piece, i) => { board[redCells[i]] = piece; });
+
+    // Write fresh state with the populated board
+    const newState = buildEmptyState();
+    newState.board = board;
+    state = newState;
+    FireState.set(newState);
+    logEvent("system", "Pieces randomly deployed. Review positions then click Start Game.");
   }
 
   function confirmAction(title, body, onConfirm) {
