@@ -78,21 +78,62 @@
   function renderRoster(state, side, containerId) {
     const roster = side === "blue" ? BLUE_PIECES : RED_PIECES;
     const eliminated = (state.eliminated && state.eliminated[side]) || {};
-    const remaining = {};
-    roster.forEach(p => remaining[p.id] = p.count - (eliminated[p.id] || 0));
 
     const container = document.getElementById(containerId);
     container.innerHTML = "";
     roster.forEach(p => {
+      const elimCount = eliminated[p.id] || 0;
+      const left = p.count - elimCount;
+
+      // Status: depleted = all gone, partial = some gone, normal = none gone
+      const status = left === 0 ? "depleted" : elimCount > 0 ? "partial" : "";
+
       const row = document.createElement("div");
-      const left = remaining[p.id];
-      row.className = "roster-row" + (left === 0 ? " depleted" : "");
+      row.className = "roster-row" + (status ? " " + status : "");
       row.innerHTML = `
         <svg><use href="#icon-${p.icon}"></use></svg>
         <span>${p.name}</span>
         <span class="count">${left}/${p.count}</span>
       `;
       container.appendChild(row);
+    });
+  }
+
+  // ---- Render scenario cards on the public board ----
+  function renderScenarioCards(state) {
+    const activeCardId = state.activeScenario ? state.activeScenario.cardId : null;
+
+    ["blue", "red"].forEach(side => {
+      const containerId = "public-" + side + "-cards";
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const cards = SCENARIO_CARDS.filter(c => c.side === side);
+      container.innerHTML = "";
+      cards.forEach(card => {
+        const isActive = card.id === activeCardId;
+        const div = document.createElement("div");
+        div.className = "pub-card " + side + "-card" + (isActive ? " active-card" : "");
+
+        const pips = Array.from({ length: 5 }, (_, i) =>
+          `<span class="${i < card.difficulty ? "on" : ""}"></span>`
+        ).join("");
+
+        const modStr = card.modifier >= 0 ? "+" + card.modifier : "" + card.modifier;
+        const typeLabel = card.type.toUpperCase();
+
+        div.innerHTML = `
+          <div class="pub-card-name">${card.name}</div>
+          <div class="pub-card-meta">
+            <span>${typeLabel}</span>
+            <span>mod ${modStr}</span>
+            <span>detect +${card.detectionRisk}</span>
+            <span class="pub-card-pips">${pips}</span>
+          </div>
+          <div class="pub-card-desc">${card.description}</div>
+        `;
+        container.appendChild(div);
+      });
     });
   }
 
@@ -193,6 +234,7 @@
     renderDetection(state);
     renderStatus(state);
     renderActiveScenario(state);
+    renderScenarioCards(state);
     renderLog(state);
     renderWin(state);
   }

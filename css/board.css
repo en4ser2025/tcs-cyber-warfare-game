@@ -59,10 +59,26 @@
   background: var(--bg-panel-2);
   font-family: var(--font-mono);
   font-size: 12px;
+  transition: opacity 0.3s ease, color 0.3s ease;
 }
 .roster-row svg { width: 18px; height: 18px; flex-shrink: 0; }
-.roster-row .count { margin-left: auto; color: var(--text-low); }
-.roster-row.depleted { opacity: 0.3; text-decoration: line-through; }
+.roster-row .count { margin-left: auto; }
+
+/* All pieces at full count — normal colour */
+.roster-row .count { color: var(--text-low); }
+
+/* Some of this type eliminated but not all — amber warning */
+.roster-row.partial { color: var(--amber); }
+.roster-row.partial svg { color: var(--amber); }
+.roster-row.partial .count { color: var(--amber); }
+
+/* All of this type eliminated — greyed out with strikethrough */
+.roster-row.depleted {
+  opacity: 0.3;
+  text-decoration: line-through;
+  color: var(--text-low);
+}
+.roster-row.depleted svg { color: var(--text-low); }
 
 /* --- Detection meter --- */
 .detection-meter { padding: 14px 16px; }
@@ -249,3 +265,62 @@
 .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-low); }
 .conn-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
 .conn-dot.offline { background: var(--red-core); box-shadow: 0 0 8px var(--red-core); }
+
+/* --- Scenario Cards on public board --- */
+.scenario-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.scenario-side { overflow: hidden; }
+.scenario-title-blue { color: var(--blue-core); border-bottom-color: var(--blue-dim); }
+.scenario-title-red  { color: var(--red-core);  border-bottom-color: var(--red-dim);  }
+
+.scenario-card-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px;
+}
+
+.pub-card {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-faint);
+  background: var(--bg-panel-2);
+}
+.pub-card-name {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-hi);
+  margin-bottom: 2px;
+}
+.pub-card-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-low);
+  margin-bottom: 4px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pub-card-desc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-mid);
+  line-height: 1.4;
+}
+.pub-card.blue-card { border-left: 2px solid var(--blue-dim); }
+.pub-card.red-card  { border-left: 2px solid var(--red-dim);  }
+.pub-card.active-card {
+  border-color: var(--green);
+  background: rgba(57,255,136,0.07);
+  box-shadow: 0 0 12px rgba(57,255,136,0.25);
+}
+.pub-card.active-card .pub-card-name { color: var(--green); }
+
+/* difficulty pip dots */
+.pub-card-pips { display: inline-flex; gap: 2px; }
+.pub-card-pips span { width: 5px; height: 5px; border-radius: 50%; background: var(--line-mid); }
+.pub-card-pips span.on { background: var(--amber); }

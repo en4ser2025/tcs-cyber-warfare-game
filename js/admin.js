@@ -496,8 +496,21 @@
       const roster = side === "blue" ? BLUE_PIECES : RED_PIECES;
       const container = document.getElementById(`${side}-roster-admin`);
       container.innerHTML = roster.map(p => {
-        const left = p.count - eliminatedCountFor(side, p.id);
-        return `<div style="display:flex;justify-content:space-between;padding:2px 0;${left===0?"opacity:.35;text-decoration:line-through;":""}"><span>${p.short} &middot; ${p.name}</span><span>${left}/${p.count}</span></div>`;
+        const elimCount = eliminatedCountFor(side, p.id);
+        const left = p.count - elimCount;
+
+        let style = "display:flex;justify-content:space-between;padding:2px 0;";
+        let color = "";
+        if (left === 0) {
+          // all of this type gone — grey strikethrough
+          style += "opacity:.3;text-decoration:line-through;";
+          color = "color:var(--text-low);";
+        } else if (elimCount > 0) {
+          // some gone but not all — amber warning
+          color = "color:var(--amber);";
+        }
+
+        return `<div style="${style}${color}"><span>${p.short} &middot; ${p.name}</span><span>${left}/${p.count}</span></div>`;
       }).join("");
     });
   }
