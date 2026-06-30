@@ -267,7 +267,30 @@
 .modal-box h3 { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.05em; margin: 0 0 14px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 
-/* --- Detection meter (admin uses the same bar markup as the public board) --- */
+/* --- Voting panel number inputs (small, not the giant PIN style) --- */
+.vote-input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0;
+  text-align: center;
+  padding: 6px 8px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  color: var(--text-hi);
+  margin: 0;
+}
+.vote-input:focus { outline: none; border-color: var(--blue-core); box-shadow: 0 0 8px var(--blue-glow); }
+
+/* Vote tally bar rows inside admin */
+.vote-tally-admin-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
+.vote-tally-admin-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; color: var(--text-mid); }
+.vote-tally-admin-track { height: 6px; border-radius: 99px; background: var(--bg-raised); overflow: hidden; }
+.vote-tally-admin-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+.vote-tally-admin-fill.blue-fill { background: var(--blue-core); }
+.vote-tally-admin-fill.red-fill  { background: var(--red-core); }
+.vote-tally-admin-fill.won       { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .detection-bar-track {
   height: 14px;
   border-radius: 99px;

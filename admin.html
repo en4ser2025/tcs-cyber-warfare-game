@@ -136,6 +136,29 @@
         <div class="panel-title">Move Log</div>
         <div class="admin-log" id="admin-log"></div>
       </div>
+
+      <!-- Voting Panel -->
+      <div class="panel section" id="voting-panel">
+        <div class="panel-title">&#x1F4F1; Participant Voting</div>
+        <div class="section-body" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="helper-text" style="padding:0;">Quorum = 50%+1. Votes auto-reset each turn.</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <label class="field-label" style="color:var(--blue-core);margin:0;white-space:nowrap;">Blue:</label>
+            <input type="number" id="vote-blue-expected" min="1" max="50" value="5" class="vote-input" style="width:56px;">
+            <label class="field-label" style="color:var(--red-core);margin:0;white-space:nowrap;">Red:</label>
+            <input type="number" id="vote-red-expected" min="1" max="50" value="5" class="vote-input" style="width:56px;">
+            <button class="btn btn-sm btn-ghost" id="vote-config-save-btn" style="flex:1;">&#x2713; Save</button>
+          </div>
+          <div class="eyebrow">Live Tally — Current Turn</div>
+          <div id="vote-tally-container">
+            <div class="helper-text" style="padding:0;color:var(--text-low);">Game not started.</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm btn-blue" id="vote-apply-btn" disabled style="flex:1;">&#x25B6; Apply Winner</button>
+            <button class="btn btn-sm btn-ghost" id="vote-reset-btn">Reset</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

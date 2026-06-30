@@ -44,15 +44,16 @@ a laptop; everyone else watches the live board on a shared screen or projector.
 ```
 index.html              Public board display (for the projector / shared screen)
 admin.html               Admin control panel (PIN-gated, for the facilitator's laptop)
+vote.html                Mobile voting page — participants scan a QR code to reach this
 data/gameData.js         Piece rosters, ranks, and the full scenario card library
 js/stateShape.js         Shared game-state shape + helper functions
 js/gameEngine.js         Combat resolution & win-condition logic (pure functions)
 js/firebaseConfig.js     Firebase project config — YOU edit this before deploying
 js/adminConfig.js        Admin panel PIN — YOU edit this before deploying
-js/board.js              Public board rendering + live state subscription
-js/admin.js              Admin panel logic: setup, moves, clashes, scenario cards
+js/board.js              Public board rendering + live state subscription + QR/voting display
+js/admin.js              Admin panel logic: setup, moves, clashes, scenario cards, voting
 css/theme.css            Shared design tokens (colors, type, buttons, panels)
-css/board.css             Public board styles
+css/board.css             Public board styles (fits one screen, no scrolling)
 css/admin.css             Admin panel styles
 assets/icons/sprite.svg  All piece icons as a single inline SVG sprite sheet
 ```
@@ -206,21 +207,76 @@ Don't publicly share the admin URL/PIN — just the board link.
 1. Open the **board URL** on the projector/shared screen. It will show "SETUP" and
    an empty grid while it waits.
 2. On your own laptop, open the **admin URL**, enter your PIN.
-3. Use **Setup — Place Pieces** to deploy all 24 Blue and 20 Red pieces (the **Start
-   Game** button unlocks automatically once both rosters are fully placed).
+3. Use **Setup — Place Pieces** to deploy all 24 Blue and 20 Red pieces by hand, or
+   click **Random Setup** to instantly deploy both full rosters in randomized
+   positions (the **Start Game** button unlocks automatically once both rosters are
+   fully placed, however that happened).
 4. Click **Start Game (Lock Setup)**.
-5. For each turn:
-   - Pick the relevant **scenario card** for the side that's acting (Blue or Red
-     tab in the card list).
-   - Click the piece that's moving on the **Tactical Board**, then click an
-     adjacent empty cell (simple move) or an adjacent enemy piece (clash).
-   - For clashes, review the **attacker win odds**, set or randomize the **roll**,
-     and click **Resolve & Apply**. Both pieces are revealed publicly at this point.
-   - Click **End Turn** to pass to the other side.
-6. The board, detection meter, rosters, and operations log update live for everyone
-   watching the projector — no manual refresh needed.
-7. When a win condition is hit, both screens show a full win banner automatically.
-8. Click **New Game** to reset everything for another round.
+5. For each turn, either:
+   - **Drive it yourself**: pick the relevant **scenario card** for the acting side,
+     click the piece that's moving on the board, then click an adjacent empty cell
+     (move) or enemy piece (clash). For clashes, review the odds, set/randomize the
+     **roll**, and click **Resolve & Apply** — both pieces are revealed publicly.
+   - **Let participants vote**: see the *Participant Voting* section below.
+6. **The turn ends automatically** the moment a move or clash completes — there's a
+   short pause so the result is visible, then the turn banner flips to the other
+   side. You don't need to click End Turn yourself in normal play; it's still there
+   as a manual override if you need to skip a turn for any reason.
+7. The board, detection meter, rosters, scenario cards, and operations log update
+   live for everyone watching the projector — no manual refresh needed.
+8. When a win condition is hit, both screens show a full win banner automatically.
+9. Click **New Game** to clear the board and randomly re-deploy both rosters for
+   another round in one click.
+
+---
+
+## Participant Voting (vote from your phone)
+
+Players can vote for which scenario card to play next from their own phones instead
+of (or alongside) the admin picking manually.
+
+### How it works
+
+1. The **board page** (`index.html`) shows a QR code once the game is in progress.
+   Anyone in the room scans it to open `vote.html` on their phone.
+2. They pick a team (**Blue** or **Red**) — this is remembered on their phone for
+   the rest of the session.
+3. Whenever it's their team's turn, they see that side's scenario cards and tap one
+   to vote. Each phone can only vote once per turn (tracked via a private ID stored
+   in the phone's browser — no login required).
+4. Both the **board** and the **admin console** show a live tally as votes come in.
+5. Once a card reaches **quorum** (more than half of that side's expected voter
+   count), it's **automatically selected** — for non-combat ("special") cards the
+   effect applies immediately and the turn ends; for combat-relevant cards, the
+   card is armed and the admin just clicks the piece on the board to complete the
+   move, which then ends the turn as normal.
+6. Votes automatically clear at the start of every turn, so everyone gets a fresh
+   say each time.
+
+### Setting voter counts
+
+In the admin console's **Participant Voting** panel, set how many people are
+expected to vote on each side (e.g. 5 Blue, 5 Red, or whatever your group size is).
+Quorum is calculated as more than half of that number. You can change this anytime
+— even mid-game — and it takes effect on the next vote check.
+
+### Admin override
+
+The admin can always click **Apply Winning Card** to force-apply whichever card
+currently has the most votes, even before quorum is reached — useful if you're
+running short on time. **Reset Votes** clears the current turn's tally without
+ending the turn, in case votes need a do-over.
+
+### Notes on the voting flow
+
+- If nobody votes, the admin can simply ignore the voting panel and play cards
+  manually as before — voting is optional, not required.
+- The "one vote per phone per turn" rule is enforced client-side (via browser
+  storage), not server-side — like the admin PIN, this is a light deterrent for a
+  trusted room, not tamper-proof security.
+- Multiple people can have the voting page open at once; there's no limit on
+  participants beyond Firebase's free-tier connection limits (generous for any
+  realistic in-person session).
 
 ---
 

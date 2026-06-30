@@ -9,11 +9,14 @@
 </head>
 <body>
 
-<!-- SVG sprite (inlined via fetch in board.js, but a static fallback include works too) -->
 <div id="sprite-mount"></div>
+
+<!-- QR code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <div class="app-shell">
 
+  <!-- ROW 1: Header -->
   <header class="header">
     <div>
       <h1 class="font-display">CYBER GRID</h1>
@@ -26,6 +29,17 @@
     </div>
   </header>
 
+  <!-- ROW 2: Vote strip (QR + live tally) — hidden until game starts -->
+  <div class="panel vote-strip" id="vote-strip" style="display:none;">
+    <div class="vote-strip-qr">
+      <div id="qr-code"></div>
+      <div class="vote-strip-qr-label">Scan to vote</div>
+    </div>
+    <div class="vote-strip-tally" id="vote-strip-tally"></div>
+    <div class="vote-strip-quorum" id="vote-strip-quorum" style="display:none;"></div>
+  </div>
+
+  <!-- ROW 3: Now-playing banner — hidden when no active card -->
   <div class="panel now-playing" id="now-playing-banner" style="display:none;">
     <span class="pill" id="now-playing-side"></span>
     <div>
@@ -34,53 +48,53 @@
     </div>
   </div>
 
+  <!-- ROW 4: Main grid — rosters + board -->
   <div class="main-grid">
 
-    <!-- LEFT: Blue roster -->
+    <!-- LEFT: Blue roster + detection meter -->
     <div class="panel roster-panel">
-      <div class="panel-title">Defender Roster &mdash; Blue</div>
+      <div class="panel-title" style="font-size:10px;padding:5px 8px;">Defenders &mdash; Blue</div>
+      <div class="panel detection-meter" style="border:none;border-bottom:1px solid var(--line-faint);border-radius:0;background:transparent;">
+        <div class="eyebrow" style="font-size:8px;">SOC Detection</div>
+        <div class="detection-bar-track"><div class="detection-bar-fill" id="detection-fill" style="width:0%"></div></div>
+        <div class="detection-label"><span id="detection-pct">0%</span><span>100% = caught</span></div>
+      </div>
       <div class="roster-list" id="blue-roster"></div>
     </div>
 
-    <!-- CENTER: board + detection meter -->
-    <div style="display:flex; flex-direction:column; gap:14px;">
-      <div class="panel detection-meter">
-        <div class="eyebrow">SOC Detection Meter</div>
-        <div class="detection-bar-track"><div class="detection-bar-fill" id="detection-fill" style="width:0%"></div></div>
-        <div class="detection-label"><span id="detection-pct">0%</span><span>Threshold: intrusion caught</span></div>
-      </div>
-
-      <div class="panel board-wrap">
-        <div class="board" id="board"></div>
-      </div>
+    <!-- CENTRE: Board -->
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
     </div>
 
     <!-- RIGHT: Red roster -->
     <div class="panel roster-panel">
-      <div class="panel-title">Threat Roster &mdash; Red</div>
+      <div class="panel-title" style="font-size:10px;padding:5px 8px;">Threat Actors &mdash; Red</div>
       <div class="roster-list" id="red-roster"></div>
     </div>
+
   </div>
 
+  <!-- ROW 5: Operations log (compact strip) -->
   <div class="panel log-panel">
-    <div class="panel-title">Operations Log</div>
     <div class="log-feed" id="log-feed"></div>
   </div>
 
-  <!-- Scenario Cards — visible to all players -->
+  <!-- ROW 6: Scenario cards (compact 2-column per side) -->
   <div class="scenario-grid">
     <div class="panel scenario-side">
-      <div class="panel-title scenario-title-blue">&#x1F6E1; Defender Scenario Cards &mdash; Blue</div>
+      <div class="panel-title scenario-title-blue" style="font-size:9px;padding:4px 8px;">&#x1F6E1; Blue Scenario Cards</div>
       <div class="scenario-card-list" id="public-blue-cards"></div>
     </div>
     <div class="panel scenario-side">
-      <div class="panel-title scenario-title-red">&#x2620; Attacker Scenario Cards &mdash; Red</div>
+      <div class="panel-title scenario-title-red" style="font-size:9px;padding:4px 8px;">&#x2620; Red Scenario Cards</div>
       <div class="scenario-card-list" id="public-red-cards"></div>
     </div>
   </div>
 
-</div>
+</div><!-- end app-shell -->
 
+<!-- Win overlay -->
 <div class="win-overlay" id="win-overlay" style="display:none;">
   <div class="panel win-card" id="win-card">
     <div class="eyebrow" id="win-eyebrow">GAME OVER</div>
@@ -89,10 +103,8 @@
   </div>
 </div>
 
-<!-- Firebase SDK (compat build = simplest for plain <script> usage, no bundler) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
 <script src="data/gameData.js"></script>
 <script src="js/stateShape.js"></script>
 <script src="js/firebaseConfig.js"></script>

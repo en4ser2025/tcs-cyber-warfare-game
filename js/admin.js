@@ -62,7 +62,6 @@
       }
       setConn(true);
       if (!s) {
-        // empty room — initialize fresh state automatically
         state = buildEmptyState();
         FireState.set(state);
         return;
@@ -70,6 +69,29 @@
       state = s;
       if (!state.board) state.board = {};
       renderEverything();
+      checkQuorum();   // check on every state update
+    });
+
+    wireVotingPanel();
+  }
+
+  function wireVotingPanel() {
+    document.getElementById("vote-config-save-btn").addEventListener("click", () => {
+      const blueExp = parseInt(document.getElementById("vote-blue-expected").value, 10) || 5;
+      const redExp  = parseInt(document.getElementById("vote-red-expected").value, 10) || 5;
+      FireState.update({ votingConfig: { blueExpected: blueExp, redExpected: redExp, enabled: true } });
+      logEvent("system", `Voter counts updated — Blue: ${blueExp}, Red: ${redExp}. Quorum = 50%+1 each side.`);
+    });
+
+    document.getElementById("vote-apply-btn").addEventListener("click", () => {
+      applyWinningVote(true);  // manual override — apply regardless of quorum
+    });
+
+    document.getElementById("vote-reset-btn").addEventListener("click", () => {
+      if (!state) return;
+      const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
+      FireState.update({ votes: {} });
+      logEvent("system", "Votes manually reset by admin.");
     });
   }
 
@@ -113,8 +135,10 @@
       state.phase = "playing";
       state.turn = "blue";
       state.turnNumber = 1;
+      state.turnKey = "t1-blue";
+      state.votes = {};
       logEvent("system", "Setup complete. The simulation begins — Blue moves first.");
-      FireState.update({ phase: "playing", turn: "blue", turnNumber: 1 });
+      FireState.update({ phase: "playing", turn: "blue", turnNumber: 1, turnKey: "t1-blue", votes: {} });
     });
 
     document.getElementById("random-setup-btn").addEventListener("click", () => {
@@ -128,8 +152,9 @@
     document.getElementById("end-turn-btn").addEventListener("click", () => {
       const next = state.turn === "blue" ? "red" : "blue";
       const nextTurnNumber = next === "blue" ? (state.turnNumber || 1) + 1 : state.turnNumber || 1;
+      const nextTurnKey = "t" + nextTurnNumber + "-" + next;
       selectedCell = null; selectedCardId = null;
-      FireState.update({ turn: next, turnNumber: nextTurnNumber, activeScenario: null });
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {} });
     });
   }
 
@@ -389,6 +414,25 @@
     selectedCell = null;
     pendingMove = null;
     renderAdminBoard();
+    autoEndTurn();
+  }
+
+  /** End the current turn automatically after a move or clash completes.
+   *  Skips if the game has already ended (win condition triggered this action). */
+  function autoEndTurn() {
+    if (!state || state.phase !== "playing") return;
+    const next = state.turn === "blue" ? "red" : "blue";
+    const nextTurnNumber = next === "blue" ? (state.turnNumber || 1) + 1 : state.turnNumber || 1;
+    const nextTurnKey = "t" + nextTurnNumber + "-" + next;
+    selectedCell = null;
+    selectedCardId = null;
+    // Small delay so the move animation / resolve result is visible before the turn banner flips
+    setTimeout(() => {
+      // Re-check phase — win condition may have been applied during this action
+      if (!state || state.phase !== "playing") return;
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {} });
+      logEvent("system", `Turn ended automatically — now ${next.toUpperCase()}'s turn (#${nextTurnNumber}).`);
+    }, 1200);
   }
 
   function pieceLabel(unit) {
@@ -442,6 +486,8 @@
     renderAdminLog();
     renderPhaseUI();
     renderTurnInstruction();
+    renderVoteTally();
+    syncVotingConfigUI();
   }
 
   function renderAdminBoard() {
@@ -781,6 +827,7 @@
 
     selectedCardId = null;
     closeResolvePanel();
+    autoEndTurn();
   }
 
   function checkAndApplyWin(detectionMeter, board, serverBreachedFlag) {
@@ -822,6 +869,162 @@
       logEvent("system", `Admin manually lowered detection meter by ${amt}.`);
       FireState.update({ detectionMeter: newVal });
     });
+  }
+
+  // ---------------- VOTING ----------------
+
+  /** Sync the voter count input fields to match whatever's stored in state */
+  function syncVotingConfigUI() {
+    if (!state || !state.votingConfig) return;
+    const cfg = state.votingConfig;
+    const blueInput = document.getElementById("vote-blue-expected");
+    const redInput  = document.getElementById("vote-red-expected");
+    if (blueInput && document.activeElement !== blueInput) blueInput.value = cfg.blueExpected || 5;
+    if (redInput  && document.activeElement !== redInput)  redInput.value  = cfg.redExpected  || 5;
+  }
+
+  /** Build a tally map {cardId: count} for the current turn and side */
+  function buildTally(side) {
+    if (!state) return {};
+    const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
+    const allVotes = (state.votes && state.votes[currentTurnKey]) || {};
+    const tally = {};
+    Object.values(allVotes).forEach(v => {
+      if (v.side === side) tally[v.cardId] = (tally[v.cardId] || 0) + 1;
+    });
+    return tally;
+  }
+
+  function quorumFor(side) {
+    const cfg = (state && state.votingConfig) || {};
+    const expected = side === "blue" ? (cfg.blueExpected || 5) : (cfg.redExpected || 5);
+    return Math.ceil(expected / 2);
+  }
+
+  function totalVotesFor(side) {
+    if (!state) return 0;
+    const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
+    const allVotes = (state.votes && state.votes[currentTurnKey]) || {};
+    return Object.values(allVotes).filter(v => v.side === side).length;
+  }
+
+  /** Render the live vote tally panel in the admin UI */
+  function renderVoteTally() {
+    const container = document.getElementById("vote-tally-container");
+    const applyBtn  = document.getElementById("vote-apply-btn");
+    if (!container) return;
+
+    if (!state || state.phase !== "playing") {
+      container.innerHTML = `<div class="helper-text" style="padding:0;color:var(--text-low);">Start the game to enable voting.</div>`;
+      if (applyBtn) applyBtn.disabled = true;
+      return;
+    }
+
+    const side = state.turn;
+    const tally = buildTally(side);
+    const quorum = quorumFor(side);
+    const totalVotes = totalVotesFor(side);
+    const cfg = state.votingConfig || {};
+    const expected = side === "blue" ? (cfg.blueExpected || 5) : (cfg.redExpected || 5);
+    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+    const winner = sorted.find(([, count]) => count >= quorum);
+
+    container.innerHTML = "";
+
+    // Turn label
+    const turnLabel = document.createElement("div");
+    turnLabel.style.cssText = "font-family:var(--font-mono);font-size:11px;color:var(--text-mid);margin-bottom:4px;";
+    turnLabel.textContent = `${side.toUpperCase()} turn — ${totalVotes}/${expected} votes cast (quorum: ${quorum})`;
+    container.appendChild(turnLabel);
+
+    if (sorted.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "helper-text";
+      empty.style.padding = "0";
+      empty.textContent = "No votes yet this turn.";
+      container.appendChild(empty);
+    } else {
+      sorted.forEach(([cardId, count]) => {
+        const card = SCENARIO_CARDS.find(c => c.id === cardId);
+        const pct = Math.min(100, Math.round((count / expected) * 100));
+        const isWin = count >= quorum;
+        const colorVar = isWin ? "var(--green)" : (side === "blue" ? "var(--blue-core)" : "var(--red-core)");
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;flex-direction:column;gap:2px;";
+        row.innerHTML = `
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text-mid);">
+            <span>${isWin ? "✓ " : ""}${card ? card.name : cardId}</span>
+            <span>${count}/${quorum} needed</span>
+          </div>
+          <div style="height:6px;border-radius:99px;background:var(--bg-raised);overflow:hidden;">
+            <div style="height:100%;border-radius:99px;width:${pct}%;background:${colorVar};transition:width 0.4s ease;"></div>
+          </div>`;
+        container.appendChild(row);
+      });
+    }
+
+    if (applyBtn) applyBtn.disabled = !winner && sorted.length === 0;
+  }
+
+  /** Check if quorum has been reached — auto-apply the winning card */
+  let lastAutoAppliedTurnKey = null;  // prevent double-firing
+  function checkQuorum() {
+    if (!state || state.phase !== "playing") return;
+    const side = state.turn;
+    const tally = buildTally(side);
+    const quorum = quorumFor(side);
+    const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
+    const winner = Object.entries(tally).find(([, count]) => count >= quorum);
+
+    if (winner && currentTurnKey !== lastAutoAppliedTurnKey) {
+      lastAutoAppliedTurnKey = currentTurnKey;
+      applyWinningVote(false, winner[0]);
+    }
+  }
+
+  /** Apply the winning voted card — selects it in the card list for the admin to then move a piece */
+  function applyWinningVote(manualOverride, overrideCardId) {
+    if (!state || state.phase !== "playing") return;
+    const side = state.turn;
+
+    let cardId = overrideCardId;
+    if (!cardId) {
+      const tally = buildTally(side);
+      const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+      if (!sorted.length) return;
+      cardId = sorted[0][0];
+    }
+
+    const card = SCENARIO_CARDS.find(c => c.id === cardId);
+    if (!card) return;
+
+    const source = manualOverride ? "Admin applied" : "Quorum reached — auto-applied";
+    logEvent(side, `${source}: "${card.name}" selected for ${side.toUpperCase()}.`);
+
+    // Update active scenario on the public board so everyone sees it
+    FireState.update({ activeScenario: { side, cardId } });
+
+    if (card.type === "special") {
+      // Special cards take effect immediately (no board move needed)
+      // handleSpecialCard applies the effect and already calls FireState.update
+      handleSpecialCard(card);
+      selectedCardId = null;
+      renderCardList();
+      renderTurnInstruction();
+      renderVoteTally();
+      // Auto-end turn since no board move is required
+      autoEndTurn();
+    } else {
+      // Engage/move cards: arm the card in the UI so the admin can
+      // click the board piece to complete the move.
+      // autoEndTurn() fires naturally inside completeSimpleMove/applyResolution.
+      cardFilterToggle(side);
+      selectedCardId = cardId;
+      renderCardList();
+      renderTurnInstruction();
+      renderVoteTally();
+      flashHint(`"${card.name}" armed — now click a ${side.toUpperCase()} piece on the board to complete the move.`);
+    }
   }
 
 })();

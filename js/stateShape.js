@@ -33,6 +33,7 @@ function buildEmptyState() {
     phase: "setup",
     turn: "blue",
     turnNumber: 1,
+    turnKey: "t1-blue",          // changes every End Turn — used as vote namespace
     detectionMeter: 0,
     winner: null,
     winReason: null,
@@ -40,6 +41,12 @@ function buildEmptyState() {
     eliminated: { blue: {}, red: {} },
     pendingClash: null,
     activeScenario: null,
+    votes: {},                    // votes[turnKey][deviceId] = {cardId, side, ts}
+    votingConfig: {               // set by admin before game starts
+      blueExpected: 5,
+      redExpected: 5,
+      enabled: true
+    },
     log: {}
   };
 }

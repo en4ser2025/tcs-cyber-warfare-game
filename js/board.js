@@ -225,6 +225,101 @@
     text.textContent = online ? "live" : "disconnected";
   }
 
+  // ---- QR Code (generated once, pointed at vote.html on same origin) ----
+  let qrGenerated = false;
+  function renderQR() {
+    if (qrGenerated) return;
+    const el = document.getElementById("qr-code");
+    if (!el || typeof QRCode === "undefined") return;
+    // Build the vote URL from the current page location
+    const voteUrl = window.location.origin + window.location.pathname.replace("index.html", "").replace(/\/$/, "") + "/vote.html";
+    try {
+      new QRCode(el, {
+        text: voteUrl,
+        width: 88,
+        height: 88,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      qrGenerated = true;
+    } catch(e) { console.warn("QR generation failed:", e); }
+  }
+
+  // ---- Vote strip (QR + tally on projector) ----
+  function renderVoteStrip(state) {
+    const strip = document.getElementById("vote-strip");
+    if (!strip) return;
+
+    if (state.phase !== "playing") {
+      strip.style.display = "none";
+      return;
+    }
+
+    strip.style.display = "flex";
+    renderQR();
+
+    const side = state.turn;
+    const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + side);
+    const allVotes = (state.votes && state.votes[currentTurnKey]) || {};
+    const cfg = state.votingConfig || {};
+    const expected = side === "blue" ? (cfg.blueExpected || 5) : (cfg.redExpected || 5);
+    const quorum = Math.ceil(expected / 2);
+
+    // Build tally for current side
+    const tally = {};
+    Object.values(allVotes).forEach(v => {
+      if (v.side === side) tally[v.cardId] = (tally[v.cardId] || 0) + 1;
+    });
+    const totalVotes = Object.values(allVotes).filter(v => v.side === side).length;
+    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+    const winnerEntry = sorted.find(([, c]) => c >= quorum);
+    const fillClass = side === "blue" ? "blue-fill" : "red-fill";
+
+    const tallyEl = document.getElementById("vote-strip-tally");
+    tallyEl.innerHTML = "";
+
+    // Header line
+    const hdr = document.createElement("div");
+    hdr.style.cssText = "font-family:var(--font-mono);font-size:10px;color:var(--text-low);margin-bottom:4px;";
+    hdr.textContent = `${side.toUpperCase()} — ${totalVotes}/${expected} votes (need ${quorum})`;
+    tallyEl.appendChild(hdr);
+
+    if (sorted.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "vote-no-votes";
+      empty.textContent = "Waiting for votes…";
+      tallyEl.appendChild(empty);
+    } else {
+      sorted.slice(0, 5).forEach(([cardId, count]) => {
+        const card = SCENARIO_CARDS.find(c => c.id === cardId);
+        const pct = Math.min(100, Math.round((count / expected) * 100));
+        const isWin = count >= quorum;
+        const row = document.createElement("div");
+        row.className = "vote-tally-row";
+        row.innerHTML = `
+          <div class="vote-tally-label">
+            <span>${isWin ? "✓ " : ""}${card ? card.name : cardId}</span>
+            <span>${count}/${quorum}</span>
+          </div>
+          <div class="vote-tally-track">
+            <div class="vote-tally-fill ${isWin ? "won" : fillClass}" style="width:${pct}%"></div>
+          </div>`;
+        tallyEl.appendChild(row);
+      });
+    }
+
+    // Quorum notice
+    const quorumEl = document.getElementById("vote-strip-quorum");
+    if (winnerEntry) {
+      const winCard = SCENARIO_CARDS.find(c => c.id === winnerEntry[0]);
+      quorumEl.style.display = "block";
+      quorumEl.textContent = `✓ QUORUM — "${winCard ? winCard.name : winnerEntry[0]}" selected!`;
+    } else {
+      quorumEl.style.display = "none";
+    }
+  }
+
   // ---- Main render dispatch ----
   function renderAll(state) {
     if (!state) return;
@@ -235,6 +330,7 @@
     renderStatus(state);
     renderActiveScenario(state);
     renderScenarioCards(state);
+    renderVoteStrip(state);
     renderLog(state);
     renderWin(state);
   }
