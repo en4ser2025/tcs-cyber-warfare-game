@@ -2,160 +2,128 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>Cyber Grid — Vote</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-  :root {
-    --bg:        #060911;
-    --panel:     #0b1019;
-    --raised:    #141d2e;
-    --line:      rgba(125,165,220,0.18);
-    --blue:      #3da9fc;
-    --blue-dim:  #1c5d8f;
-    --blue-bg:   rgba(61,169,252,0.10);
-    --red:       #ff3b5c;
-    --red-dim:   #8f1c30;
-    --red-bg:    rgba(255,59,92,0.10);
-    --amber:     #ffb627;
-    --green:     #39ff88;
-    --text-hi:   #eaf2ff;
-    --text-mid:  #9fb3cc;
-    --text-low:  #5d7290;
-    --font-head: 'Rajdhani', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body {
-    background: var(--bg); color: var(--text-hi);
-    font-family: var(--font-head); min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-  }
-  body { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-width: 480px; margin: 0 auto; }
+:root {
+  --bg:#060911; --panel:#0b1019; --raised:#141d2e; --line:rgba(125,165,220,0.18);
+  --blue:#3da9fc; --blue-dim:#1c5d8f; --blue-bg:rgba(61,169,252,0.10);
+  --red:#ff3b5c; --red-dim:#8f1c30; --red-bg:rgba(255,59,92,0.10);
+  --amber:#ffb627; --green:#39ff88; --text-hi:#eaf2ff; --text-mid:#9fb3cc; --text-low:#5d7290;
+  --font-head:'Rajdhani',sans-serif; --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text-hi);font-family:var(--font-head);min-height:100vh;-webkit-font-smoothing:antialiased;}
+body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;margin:0 auto;}
 
-  /* ---- Header ---- */
-  .hdr { text-align: center; padding: 12px 0 4px; }
-  .hdr h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.08em; }
-  .hdr .sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-low); margin-top: 3px; letter-spacing: 0.05em; }
+.hdr{text-align:center;padding:8px 0 2px;}
+.hdr h1{font-size:20px;font-weight:700;letter-spacing:0.08em;}
+.hdr .sub{font-family:var(--font-mono);font-size:10px;color:var(--text-low);margin-top:2px;}
 
-  /* ---- Status pill ---- */
-  .status-bar {
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 8px 14px; border-radius: 99px;
-    border: 1px solid var(--line); background: var(--panel);
-    font-family: var(--font-mono); font-size: 12px; color: var(--text-mid);
-  }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-low); }
-  .status-dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .status-dot.err  { background: var(--red); }
+.status-bar{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:var(--panel);font-family:var(--font-mono);font-size:11px;color:var(--text-mid);}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--text-low);}
+.status-dot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
+.status-dot.err{background:var(--red);}
 
-  /* ---- Screen management ---- */
-  .screen { display: none; flex-direction: column; gap: 14px; }
-  .screen.active { display: flex; }
+.screen{display:none;flex-direction:column;gap:10px;}
+.screen.active{display:flex;}
 
-  /* ---- Team picker ---- */
-  .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .team-btn {
-    padding: 28px 12px; border-radius: 10px; border: 2px solid var(--line);
-    background: var(--panel); cursor: pointer; text-align: center;
-    transition: all 0.15s ease; user-select: none;
-  }
-  .team-btn:active { transform: scale(0.97); }
-  .team-btn .icon { font-size: 32px; margin-bottom: 8px; }
-  .team-btn .label { font-size: 18px; font-weight: 700; letter-spacing: 0.06em; }
-  .team-btn .desc { font-family: var(--font-mono); font-size: 10px; color: var(--text-low); margin-top: 4px; }
-  .team-btn.blue-team { border-color: var(--blue-dim); }
-  .team-btn.blue-team:active, .team-btn.blue-team:hover { border-color: var(--blue); box-shadow: 0 0 18px rgba(61,169,252,0.35); }
-  .team-btn.red-team  { border-color: var(--red-dim); }
-  .team-btn.red-team:active, .team-btn.red-team:hover { border-color: var(--red); box-shadow: 0 0 18px rgba(255,59,92,0.35); }
+/* Team picker */
+.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.team-btn{padding:24px 12px;border-radius:10px;border:2px solid var(--line);background:var(--panel);cursor:pointer;text-align:center;transition:all 0.15s ease;user-select:none;}
+.team-btn:active{transform:scale(0.97);}
+.team-btn .icon{font-size:28px;margin-bottom:6px;}
+.team-btn .label{font-size:18px;font-weight:700;letter-spacing:0.06em;}
+.team-btn .desc{font-family:var(--font-mono);font-size:10px;color:var(--text-low);margin-top:3px;}
+.team-btn.blue-team{border-color:var(--blue-dim);}
+.team-btn.blue-team:active,.team-btn.blue-team:hover{border-color:var(--blue);box-shadow:0 0 16px rgba(61,169,252,0.3);}
+.team-btn.red-team{border-color:var(--red-dim);}
+.team-btn.red-team:active,.team-btn.red-team:hover{border-color:var(--red);box-shadow:0 0 16px rgba(255,59,92,0.3);}
 
-  /* ---- Section labels ---- */
-  .section-label {
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--text-low); text-align: center;
-  }
+/* Phase banner */
+.phase-banner{text-align:center;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--raised);font-size:12px;color:var(--text-mid);font-family:var(--font-mono);}
+.phase-banner.wrong-turn{border-color:var(--amber);color:var(--amber);background:rgba(255,182,39,0.08);}
+.phase-banner.not-playing{border-color:var(--line);color:var(--text-low);}
+.phase-banner.move-open{border-color:var(--green);color:var(--green);background:rgba(57,255,136,0.08);}
 
-  /* ---- Phase banner ---- */
-  .phase-banner {
-    text-align: center; padding: 10px 14px;
-    border-radius: 8px; border: 1px solid var(--line);
-    background: var(--raised); font-size: 13px; color: var(--text-mid);
-    font-family: var(--font-mono);
-  }
-  .phase-banner.wrong-turn { border-color: var(--amber); color: var(--amber); background: rgba(255,182,39,0.08); }
-  .phase-banner.not-playing { border-color: var(--line); color: var(--text-low); }
+/* Round label */
+.round-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-low);text-align:center;}
 
-  /* ---- Card grid ---- */
-  .card-grid { display: flex; flex-direction: column; gap: 8px; }
-  .vote-card {
-    padding: 12px 14px; border-radius: 8px; border: 1.5px solid var(--line);
-    background: var(--panel); cursor: pointer; transition: all 0.15s ease;
-    user-select: none; position: relative; overflow: hidden;
-  }
-  .vote-card:active { transform: scale(0.98); }
-  .vote-card.blue-card { border-left: 3px solid var(--blue-dim); }
-  .vote-card.red-card  { border-left: 3px solid var(--red-dim); }
-  .vote-card.selected.blue-card { border-color: var(--blue); background: var(--blue-bg); box-shadow: 0 0 16px rgba(61,169,252,0.3); }
-  .vote-card.selected.red-card  { border-color: var(--red);  background: var(--red-bg);  box-shadow: 0 0 16px rgba(255,59,92,0.3); }
-  .vote-card .card-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
-  .vote-card .card-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-low); margin-bottom: 5px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .vote-card .card-desc { font-family: var(--font-mono); font-size: 11px; color: var(--text-mid); line-height: 1.45; }
-  .vote-card .check { position: absolute; top: 10px; right: 12px; font-size: 18px; opacity: 0; transition: opacity 0.15s; }
-  .vote-card.selected .check { opacity: 1; }
-  /* difficulty pips */
-  .pips { display: inline-flex; gap: 2px; }
-  .pips span { width: 5px; height: 5px; border-radius: 50%; background: var(--line); }
-  .pips span.on { background: var(--amber); }
+/* Card list */
+.card-grid{display:flex;flex-direction:column;gap:6px;}
+.vote-card{padding:10px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--panel);cursor:pointer;transition:all 0.15s ease;user-select:none;position:relative;overflow:hidden;}
+.vote-card:active{transform:scale(0.98);}
+.vote-card.blue-card{border-left:3px solid var(--blue-dim);}
+.vote-card.red-card{border-left:3px solid var(--red-dim);}
+.vote-card.selected.blue-card{border-color:var(--blue);background:var(--blue-bg);box-shadow:0 0 14px rgba(61,169,252,0.25);}
+.vote-card.selected.red-card{border-color:var(--red);background:var(--red-bg);box-shadow:0 0 14px rgba(255,59,92,0.25);}
+.vote-card .card-name{font-size:14px;font-weight:700;margin-bottom:2px;}
+.vote-card .card-meta{font-family:var(--font-mono);font-size:9px;color:var(--text-low);margin-bottom:4px;display:flex;gap:6px;flex-wrap:wrap;}
+.vote-card .card-desc{font-family:var(--font-mono);font-size:10px;color:var(--text-mid);line-height:1.4;}
+.vote-card .check{position:absolute;top:8px;right:10px;font-size:16px;opacity:0;transition:opacity 0.15s;}
+.vote-card.selected .check{opacity:1;}
+.pips{display:inline-flex;gap:2px;}
+.pips span{width:4px;height:4px;border-radius:50%;background:var(--line);}
+.pips span.on{background:var(--amber);}
 
-  /* ---- Submit button ---- */
-  .submit-btn {
-    width: 100%; padding: 16px; font-family: var(--font-head); font-weight: 700;
-    font-size: 16px; letter-spacing: 0.05em; text-transform: uppercase;
-    border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s ease;
-    background: var(--raised); color: var(--text-low); border: 1.5px solid var(--line);
-  }
-  .submit-btn.ready.blue-side { background: var(--blue-bg); color: var(--blue); border-color: var(--blue); }
-  .submit-btn.ready.red-side  { background: var(--red-bg);  color: var(--red);  border-color: var(--red); }
-  .submit-btn.ready:active { transform: scale(0.98); }
-  .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Submit button */
+.submit-btn{width:100%;padding:14px;font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:0.05em;text-transform:uppercase;border-radius:8px;border:1.5px solid var(--line);cursor:pointer;transition:all 0.15s ease;background:var(--raised);color:var(--text-low);}
+.submit-btn.ready.blue-side{background:var(--blue-bg);color:var(--blue);border-color:var(--blue);}
+.submit-btn.ready.red-side{background:var(--red-bg);color:var(--red);border-color:var(--red);}
+.submit-btn.ready:active{transform:scale(0.98);}
+.submit-btn:disabled{opacity:0.4;cursor:not-allowed;}
 
-  /* ---- Confirmation screen ---- */
-  .confirm-card {
-    padding: 28px 20px; border-radius: 10px; border: 2px solid var(--green);
-    background: rgba(57,255,136,0.07); text-align: center;
-  }
-  .confirm-icon { font-size: 48px; margin-bottom: 10px; }
-  .confirm-card h2 { font-size: 20px; font-weight: 700; color: var(--green); margin-bottom: 6px; }
-  .confirm-card .voted-for { font-size: 16px; font-weight: 600; margin: 10px 0 4px; }
-  .confirm-card .voted-desc { font-family: var(--font-mono); font-size: 11px; color: var(--text-mid); line-height: 1.4; }
+/* Confirmation */
+.confirm-card{padding:22px 16px;border-radius:10px;border:2px solid var(--green);background:rgba(57,255,136,0.07);text-align:center;}
+.confirm-icon{font-size:40px;margin-bottom:8px;}
+.confirm-card h2{font-size:18px;font-weight:700;color:var(--green);margin-bottom:4px;}
+.confirm-card .voted-for{font-size:15px;font-weight:600;margin:8px 0 3px;}
+.confirm-card .voted-desc{font-family:var(--font-mono);font-size:10px;color:var(--text-mid);line-height:1.4;}
 
-  /* ---- Live tally ---- */
-  .tally-section { display: flex; flex-direction: column; gap: 6px; }
-  .tally-row { display: flex; flex-direction: column; gap: 3px; }
-  .tally-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-mid); }
-  .tally-bar-track { height: 8px; border-radius: 99px; background: var(--raised); overflow: hidden; }
-  .tally-bar-fill { height: 100%; border-radius: 99px; transition: width 0.4s cubic-bezier(.4,0,.2,1); }
-  .tally-bar-fill.blue-fill { background: var(--blue); }
-  .tally-bar-fill.red-fill  { background: var(--red); }
-  .tally-bar-fill.winner    { background: var(--green); box-shadow: 0 0 8px var(--green); }
+/* Tally */
+.tally-section{display:flex;flex-direction:column;gap:5px;}
+.tally-row{display:flex;flex-direction:column;gap:2px;}
+.tally-label{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text-mid);}
+.tally-bar-track{height:7px;border-radius:99px;background:var(--raised);overflow:hidden;}
+.tally-bar-fill{height:100%;border-radius:99px;transition:width 0.4s cubic-bezier(.4,0,.2,1);}
+.tally-bar-fill.blue-fill{background:var(--blue);}
+.tally-bar-fill.red-fill{background:var(--red);}
+.tally-bar-fill.winner{background:var(--green);box-shadow:0 0 6px var(--green);}
+.quorum-notice{text-align:center;padding:8px;border-radius:8px;font-family:var(--font-mono);font-size:11px;background:rgba(57,255,136,0.08);border:1px solid var(--green);color:var(--green);}
+.vote-count-info{font-family:var(--font-mono);font-size:9px;color:var(--text-low);text-align:center;margin-top:2px;}
 
-  /* ---- Quorum notice ---- */
-  .quorum-notice {
-    text-align: center; padding: 10px; border-radius: 8px;
-    font-family: var(--font-mono); font-size: 12px;
-    background: rgba(57,255,136,0.08); border: 1px solid var(--green); color: var(--green);
-  }
+/* ==================== MINI BOARD ==================== */
+.mini-board-wrap{display:flex;flex-direction:column;gap:6px;}
+.mini-board-label{font-family:var(--font-mono);font-size:10px;color:var(--text-low);text-align:center;}
 
-  /* ---- Wrong turn notice on vote screen ---- */
-  .wrong-turn-overlay {
-    padding: 16px; border-radius: 8px; border: 1px solid var(--amber);
-    background: rgba(255,182,39,0.08); text-align: center;
-    font-family: var(--font-mono); font-size: 12px; color: var(--amber);
-  }
+.mini-board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:100%;aspect-ratio:1/1;border-radius:6px;overflow:hidden;border:2px solid var(--line);touch-action:none;}
+
+.mini-cell{position:relative;display:flex;align-items:center;justify-content:center;background:#0b1019;border:1px solid rgba(125,165,220,0.10);cursor:pointer;transition:background 0.1s;}
+.mini-cell.zone-blue{background:rgba(61,169,252,0.04);}
+.mini-cell.zone-red{background:rgba(255,59,92,0.04);}
+.mini-cell.zone-dmz{background:repeating-linear-gradient(45deg,rgba(255,182,39,0.03) 0 4px,transparent 4px 8px);}
+.mini-cell.selected{box-shadow:inset 0 0 0 2px var(--blue);}
+.mini-cell.dest-valid{box-shadow:inset 0 0 0 2px var(--green);background:rgba(57,255,136,0.08);}
+.mini-cell.dest-clash{box-shadow:inset 0 0 0 2px var(--amber);background:rgba(255,182,39,0.08);}
+
+.mini-piece{width:82%;height:82%;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:7px;font-weight:700;letter-spacing:0;line-height:1;}
+.mini-piece.my-side{color:#fff;}
+.mini-piece.my-side.blue{background:var(--blue-bg);border:1.5px solid var(--blue-dim);color:var(--blue);}
+.mini-piece.my-side.red{background:var(--red-bg);border:1.5px solid var(--red-dim);color:var(--red);}
+.mini-piece.my-side.boxed{opacity:0.4;filter:grayscale(0.5);}
+.mini-piece.enemy{background:rgba(125,165,220,0.06);border:1px solid rgba(125,165,220,0.2);color:var(--text-low);}
+.mini-piece.selected-piece{box-shadow:0 0 0 2px var(--blue);}
+
+.move-step-label{font-family:var(--font-mono);font-size:10px;text-align:center;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--raised);color:var(--text-mid);}
+.move-step-label.step-2{border-color:var(--green);color:var(--green);background:rgba(57,255,136,0.08);}
+.move-selection-display{font-family:var(--font-mono);font-size:10px;color:var(--text-mid);text-align:center;padding:4px;}
 </style>
 </head>
 <body>
+
+<div id="sprite-mount" style="display:none;"></div>
 
 <div class="hdr">
   <h1>CYBER GRID</h1>
@@ -167,9 +135,9 @@
   <span id="conn-text">connecting…</span>
 </div>
 
-<!-- SCREEN 1: Team Selection -->
+<!-- SCREEN 1: Team picker -->
 <div class="screen active" id="screen-team">
-  <div class="section-label">Choose your team</div>
+  <div class="round-label">Choose your team</div>
   <div class="team-grid">
     <div class="team-btn blue-team" id="pick-blue">
       <div class="icon">🛡️</div>
@@ -184,28 +152,38 @@
   </div>
 </div>
 
-<!-- SCREEN 2: Voting -->
-<div class="screen" id="screen-vote">
-  <div id="vote-phase-banner" class="phase-banner" style="display:none;"></div>
-  <div class="section-label" id="vote-section-label">Select a scenario card to play</div>
+<!-- SCREEN 2: Round 1 — Card vote -->
+<div class="screen" id="screen-card">
+  <div id="card-phase-banner" class="phase-banner" style="display:none;"></div>
+  <div class="round-label" id="card-round-label">Round 1 — Select a Scenario Card</div>
   <div class="card-grid" id="card-grid"></div>
-  <button class="submit-btn" id="submit-btn" disabled>Select a card above</button>
+  <button class="submit-btn" id="card-submit-btn" disabled>Select a card above</button>
 </div>
 
-<!-- SCREEN 3: Confirmation + live tally -->
+<!-- SCREEN 3: Round 2 — Move vote (mini board) -->
+<div class="screen" id="screen-move">
+  <div id="move-phase-banner" class="phase-banner move-open">Round 2 — Select a piece, then a destination</div>
+  <div id="move-step-label" class="move-step-label">Tap one of your pieces to select it</div>
+  <div id="move-selection-display" class="move-selection-display"></div>
+  <div class="mini-board-wrap">
+    <div class="mini-board" id="mini-board"></div>
+  </div>
+  <button class="submit-btn" id="move-submit-btn" disabled>Select piece and destination</button>
+</div>
+
+<!-- SCREEN 4: Confirmation + tally -->
 <div class="screen" id="screen-confirm">
   <div class="confirm-card" id="confirm-card">
     <div class="confirm-icon">✅</div>
     <h2>Vote Locked In</h2>
-    <div class="voted-for" id="voted-card-name"></div>
-    <div class="voted-desc" id="voted-card-desc"></div>
+    <div class="voted-for" id="voted-display-name"></div>
+    <div class="voted-desc" id="voted-display-desc"></div>
   </div>
-  <div class="section-label">Live tally</div>
+  <div class="round-label">Live tally</div>
   <div class="tally-section" id="tally-section"></div>
   <div class="quorum-notice" id="quorum-notice" style="display:none;"></div>
 </div>
 
-<!-- SCRIPTS -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="data/gameData.js"></script>
@@ -213,35 +191,49 @@
 <script src="js/firebaseConfig.js"></script>
 <script>
 (function () {
-  // ---- Device ID (one vote per device per turn) ----
+  // ---- Device ID ----
   let deviceId = localStorage.getItem("cybergrid_deviceId");
   if (!deviceId) {
-    deviceId = "d_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+    deviceId = "d_" + Date.now() + "_" + Math.random().toString(36).slice(2,9);
     localStorage.setItem("cybergrid_deviceId", deviceId);
   }
+  const safeId = deviceId.replace(/[.#$[\]]/g,"_");
 
   // ---- State ----
   let gameState = null;
-  let myTeam = null;
-  let myVote = null;        // cardId we voted for this turn
-  let myTurnKey = null;     // turn we voted on — resets if turn changes
+  let myTeam = localStorage.getItem("cybergrid_team") || null;
   let selectedCardId = null;
+  let selectedFromCell = null;
+  let selectedToCell = null;
+  let myCardVoteTurn = localStorage.getItem("cybergrid_cardTurn") || null;
+  let myMoveVoteTurn = localStorage.getItem("cybergrid_moveTurn") || null;
+
+  const BOARD_SIZE = 8;
 
   // ---- DOM refs ----
   const screens = {
     team:    document.getElementById("screen-team"),
-    vote:    document.getElementById("screen-vote"),
-    confirm: document.getElementById("screen-confirm")
+    card:    document.getElementById("screen-card"),
+    move:    document.getElementById("screen-move"),
+    confirm: document.getElementById("screen-confirm"),
   };
+
   function showScreen(name) {
     Object.values(screens).forEach(s => s.classList.remove("active"));
     screens[name].classList.add("active");
+    window.scrollTo(0,0);
   }
 
-  // ---- Connection ----
   function setConn(online) {
     document.getElementById("conn-dot").className = "status-dot " + (online ? "live" : "err");
     document.getElementById("conn-text").textContent = online ? "live" : "disconnected";
+  }
+
+  function buildTurnKey(s) { return s.turnKey || ("t" + (s.turnNumber||1) + "-" + (s.turn||"blue")); }
+  function quorumFor(expected) { return Math.ceil(expected / 2); }
+  function expectedFor(side) {
+    const cfg = gameState && gameState.votingConfig || {};
+    return side === "blue" ? (cfg.blueExpected||5) : (cfg.redExpected||5);
   }
 
   // ---- Team picker ----
@@ -251,262 +243,437 @@
   function chooseTeam(side) {
     myTeam = side;
     localStorage.setItem("cybergrid_team", side);
-    showScreen("vote");
-    renderVoteScreen();
+    routeToCorrectScreen();
   }
 
-  // Restore team from previous session if on same turn
-  function restoreSession() {
-    const savedTeam = localStorage.getItem("cybergrid_team");
-    const savedVoteTurn = localStorage.getItem("cybergrid_voteTurn");
-    const savedVoteCard = localStorage.getItem("cybergrid_voteCard");
-    if (savedTeam && gameState) {
-      myTeam = savedTeam;
-      const currentTurnKey = gameState.turnKey || buildTurnKey(gameState);
-      if (savedVoteTurn === currentTurnKey && savedVoteCard) {
-        // Already voted this turn — go straight to confirmation
-        myVote = savedVoteCard;
-        myTurnKey = savedVoteTurn;
-        showScreen("confirm");
-        renderConfirmScreen();
-      } else {
-        // New turn or first time — show vote screen
-        showScreen("vote");
-        renderVoteScreen();
+  // ---- Routing ----
+  function routeToCorrectScreen() {
+    if (!myTeam) { showScreen("team"); return; }
+    if (!gameState) { showScreen("card"); renderCardScreen(); return; }
+
+    const currentTurnKey = buildTurnKey(gameState);
+    const votePhase = gameState.votePhase || "card";
+
+    // If game ended or not started
+    if (gameState.phase !== "playing") { showScreen("card"); renderCardScreen(); return; }
+
+    // Wrong team's turn — show card screen with "not your turn" message
+    if (gameState.turn !== myTeam) { showScreen("card"); renderCardScreen(); return; }
+
+    if (votePhase === "card") {
+      // Already voted on card this turn?
+      if (myCardVoteTurn === currentTurnKey) {
+        showScreen("confirm"); renderConfirmScreen(); return;
       }
+      showScreen("card"); renderCardScreen();
+    } else if (votePhase === "move") {
+      // Already voted on move this turn?
+      if (myMoveVoteTurn === currentTurnKey) {
+        showScreen("confirm"); renderConfirmScreen(); return;
+      }
+      showScreen("move"); renderMoveScreen();
     }
   }
 
-  function buildTurnKey(s) {
-    return "t" + (s.turnNumber || 1) + "-" + (s.turn || "blue");
-  }
+  // ==================== ROUND 1: CARD SCREEN ====================
 
-  // ---- Render vote screen ----
-  function renderVoteScreen() {
-    const banner = document.getElementById("vote-phase-banner");
-    const label = document.getElementById("vote-section-label");
-    const grid = document.getElementById("card-grid");
-    const btn = document.getElementById("submit-btn");
-
-    if (!myTeam) return;
+  function renderCardScreen() {
+    const banner = document.getElementById("card-phase-banner");
+    const label  = document.getElementById("card-round-label");
+    const grid   = document.getElementById("card-grid");
+    const btn    = document.getElementById("card-submit-btn");
 
     if (!gameState) {
-      banner.style.display = "block";
-      banner.className = "phase-banner not-playing";
-      banner.textContent = "Connecting to game… if this persists, ask the facilitator to check the board.";
-      grid.innerHTML = "";
-      btn.disabled = true;
-      btn.textContent = "Waiting for game…";
-      return;
+      banner.style.display = "block"; banner.className = "phase-banner not-playing";
+      banner.textContent = "Connecting to game — stand by…";
+      grid.innerHTML = ""; btn.disabled = true; btn.textContent = "Waiting…"; return;
     }
-
-    const currentTurnKey = gameState.turnKey || buildTurnKey(gameState);
-    const sideClass = myTeam + "-side";
-
-    // Check game state
     if (gameState.phase !== "playing") {
-      banner.style.display = "block";
-      banner.className = "phase-banner not-playing";
+      banner.style.display = "block"; banner.className = "phase-banner not-playing";
       banner.textContent = "Game hasn't started yet. Stand by…";
-      grid.innerHTML = "";
-      btn.disabled = true;
-      btn.textContent = "Waiting for game to start…";
-      return;
+      grid.innerHTML = ""; btn.disabled = true; btn.textContent = "Waiting for game…"; return;
     }
-
     if (gameState.turn !== myTeam) {
-      banner.style.display = "block";
-      banner.className = "phase-banner wrong-turn";
-      banner.textContent = `It's ${gameState.turn.toUpperCase()}'s turn. Wait for your team's turn.`;
-      grid.innerHTML = "";
-      btn.disabled = true;
-      btn.textContent = "Not your turn yet…";
-      return;
+      banner.style.display = "block"; banner.className = "phase-banner wrong-turn";
+      banner.textContent = "It's " + gameState.turn.toUpperCase() + "'s turn. Wait for your team's turn.";
+      grid.innerHTML = ""; btn.disabled = true; btn.textContent = "Not your turn yet…"; return;
+    }
+    if ((gameState.votePhase||"card") !== "card") {
+      // Move phase is open but we're on the card screen — redirect
+      routeToCorrectScreen(); return;
     }
 
     banner.style.display = "none";
-    label.textContent = "Vote for a scenario card";
-
-    // Reset/restore button state based on current selection
-    if (selectedCardId) {
-      const selCard = SCENARIO_CARDS.find(c => c.id === selectedCardId);
-      btn.className = `submit-btn ready ${sideClass}`;
-      btn.textContent = selCard ? `Cast vote — ${selCard.name}` : "Cast vote";
-      btn.disabled = false;
-    } else {
-      btn.className = "submit-btn";
-      btn.textContent = "Select a card above";
-      btn.disabled = true;
-    }
+    label.textContent = "Round 1 — Vote for a Scenario Card";
 
     const cards = SCENARIO_CARDS.filter(c => c.side === myTeam);
     grid.innerHTML = "";
     cards.forEach(card => {
-      const pips = Array.from({ length: 5 }, (_, i) =>
-        `<span class="${i < card.difficulty ? "on" : ""}"></span>`
-      ).join("");
+      const pips = Array.from({length:5},(_,i)=>`<span class="${i<card.difficulty?"on":""}"></span>`).join("");
       const div = document.createElement("div");
-      div.className = `vote-card ${myTeam}-card${selectedCardId === card.id ? " selected" : ""}`;
-      div.innerHTML = `
-        <span class="check">✓</span>
+      div.className = `vote-card ${myTeam}-card${selectedCardId===card.id?" selected":""}`;
+      div.innerHTML = `<span class="check">✓</span>
         <div class="card-name">${card.name}</div>
-        <div class="card-meta">
-          <span>${card.type.toUpperCase()}</span>
-          <span>mod ${card.modifier >= 0 ? "+" : ""}${card.modifier}</span>
-          <span>detect +${card.detectionRisk}</span>
-          <span class="pips">${pips}</span>
-        </div>
-        <div class="card-desc">${card.description}</div>
-      `;
+        <div class="card-meta"><span>${card.type.toUpperCase()}</span><span>mod ${card.modifier>=0?"+":""}${card.modifier}</span><span>detect +${card.detectionRisk}</span><span class="pips">${pips}</span></div>
+        <div class="card-desc">${card.description}</div>`;
       div.addEventListener("click", () => {
         selectedCardId = card.id;
-        btn.className = `submit-btn ready ${sideClass}`;
-        btn.textContent = `Cast vote — ${card.name}`;
+        btn.className = `submit-btn ready ${myTeam}-side`;
+        btn.textContent = "Cast vote — " + card.name;
         btn.disabled = false;
-        document.querySelectorAll(".vote-card").forEach(el => el.classList.remove("selected"));
+        document.querySelectorAll(".vote-card").forEach(el=>el.classList.remove("selected"));
         div.classList.add("selected");
       });
       grid.appendChild(div);
     });
 
-    btn.onclick = () => submitVote(currentTurnKey);
+    if (selectedCardId) {
+      const sc = SCENARIO_CARDS.find(c=>c.id===selectedCardId);
+      btn.className = `submit-btn ready ${myTeam}-side`;
+      btn.textContent = sc ? "Cast vote — "+sc.name : "Cast vote";
+      btn.disabled = false;
+    } else {
+      btn.className = "submit-btn"; btn.textContent = "Select a card above"; btn.disabled = true;
+    }
+
+    btn.onclick = () => submitCardVote();
   }
 
-  // ---- Submit vote ----
-  function submitVote(turnKey) {
-    if (!selectedCardId || !myTeam || !FireState.isReady()) return;
-    const safeDeviceId = deviceId.replace(/[.#$[\]]/g, "_");
-    const voteData = { cardId: selectedCardId, side: myTeam, ts: Date.now() };
-
-    // Merge this device's vote into the votes object for the current turn.
-    // FireState.update does a shallow merge at the root — we need a deep path,
-    // so we build the full nested key using dot-notation that Firebase understands,
-    // or simply read-modify-write via getOnce.
+  function submitCardVote() {
+    if (!selectedCardId || !gameState || !FireState.isReady()) return;
+    const turnKey = buildTurnKey(gameState);
     FireState.getOnce().then(current => {
       const updated = current ? JSON.parse(JSON.stringify(current)) : {};
       updated.votes = updated.votes || {};
       updated.votes[turnKey] = updated.votes[turnKey] || {};
-      updated.votes[turnKey][safeDeviceId] = voteData;
+      updated.votes[turnKey][safeId] = { cardId: selectedCardId, side: myTeam, ts: Date.now() };
       return FireState.update({ votes: updated.votes });
     }).then(() => {
-      myVote = selectedCardId;
-      myTurnKey = turnKey;
-      localStorage.setItem("cybergrid_voteTurn", turnKey);
-      localStorage.setItem("cybergrid_voteCard", selectedCardId);
-      showScreen("confirm");
-      renderConfirmScreen();
-    }).catch(err => {
-      console.error("Vote failed:", err);
-      alert("Vote failed — check your connection and try again.");
+      myCardVoteTurn = turnKey;
+      localStorage.setItem("cybergrid_cardTurn", turnKey);
+      showScreen("confirm"); renderConfirmScreen();
+    }).catch(err => { console.error("Card vote failed:", err); alert("Vote failed — check connection."); });
+  }
+
+  // ==================== ROUND 2: MOVE SCREEN (MINI BOARD) ====================
+
+  function renderMoveScreen() {
+    if (!gameState || gameState.phase !== "playing") return;
+
+    const stepLabel = document.getElementById("move-step-label");
+    const selDisplay = document.getElementById("move-selection-display");
+    const btn = document.getElementById("move-submit-btn");
+
+    const activeCard = gameState.activeScenario ? SCENARIO_CARDS.find(c=>c.id===gameState.activeScenario.cardId) : null;
+    const bannerEl = document.getElementById("move-phase-banner");
+    bannerEl.textContent = activeCard
+      ? `Round 2 — Moving with "${activeCard.name}"`
+      : "Round 2 — Select a piece, then a destination";
+
+    if (selectedFromCell && selectedToCell) {
+      stepLabel.className = "move-step-label step-2";
+      stepLabel.textContent = "Move selected — tap Submit to vote";
+      const fromDef = getPieceDef(selectedFromCell);
+      selDisplay.textContent = (fromDef ? fromDef.short : selectedFromCell) + " → " + selectedToCell;
+      btn.className = `submit-btn ready ${myTeam}-side`;
+      btn.textContent = "Submit move vote";
+      btn.disabled = false;
+    } else if (selectedFromCell) {
+      stepLabel.className = "move-step-label step-2";
+      stepLabel.textContent = "Piece selected — tap a highlighted destination";
+      const fromDef = getPieceDef(selectedFromCell);
+      selDisplay.textContent = (fromDef ? fromDef.name : selectedFromCell) + " selected";
+      btn.className = "submit-btn"; btn.textContent = "Now tap a destination cell"; btn.disabled = true;
+    } else {
+      stepLabel.className = "move-step-label";
+      stepLabel.textContent = "Tap one of your pieces to select it";
+      selDisplay.textContent = "";
+      btn.className = "submit-btn"; btn.textContent = "Select piece and destination"; btn.disabled = true;
+    }
+
+    btn.onclick = () => submitMoveVote();
+    renderMiniBoard();
+  }
+
+  function getPieceDef(cellKey) {
+    if (!gameState || !gameState.board) return null;
+    const unit = gameState.board[cellKey];
+    if (!unit) return null;
+    return (unit.side === "blue" ? BLUE_PIECES : RED_PIECES).find(p => p.id === unit.pieceId) || null;
+  }
+
+  function hasLegalMove(cellKey) {
+    if (!gameState || !gameState.board) return false;
+    const { row, col } = parseCellKey(cellKey);
+    const unit = gameState.board[cellKey];
+    if (!unit) return false;
+    const def = getPieceDef(cellKey);
+    if (def && def.movable === false) return false;
+    const neighbors = [[row-1,col],[row+1,col],[row,col-1],[row,col+1]];
+    return neighbors.some(([r,c]) => {
+      if (r<0||r>=BOARD_SIZE||c<0||c>=BOARD_SIZE) return false;
+      const occ = gameState.board[r+","+c];
+      return !occ || occ.eliminated || occ.side !== unit.side;
     });
   }
 
-  // ---- Render confirmation + tally ----
+  function isAdjacent(keyA, keyB) {
+    const a = parseCellKey(keyA), b = parseCellKey(keyB);
+    return Math.abs(a.row-b.row) + Math.abs(a.col-b.col) === 1;
+  }
+
+  function renderMiniBoard() {
+    const el = document.getElementById("mini-board");
+    el.innerHTML = "";
+    if (!gameState || !gameState.board) return;
+    const board = gameState.board;
+
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        const key = row + "," + col;
+        const cell = document.createElement("div");
+        const zone = row<=2?"red":(row>=5?"blue":"dmz");
+        cell.className = "mini-cell zone-" + zone;
+
+        // Highlight states
+        if (selectedFromCell === key) {
+          cell.classList.add("selected");
+        } else if (selectedFromCell && !selectedToCell && isAdjacent(selectedFromCell, key)) {
+          const occ = board[key];
+          const fromUnit = board[selectedFromCell];
+          if (!occ || occ.eliminated) {
+            cell.classList.add("dest-valid");
+          } else if (occ.side !== fromUnit.side) {
+            cell.classList.add("dest-clash");
+          }
+        }
+
+        const unit = board[key];
+        if (unit && !unit.eliminated) {
+          const piece = document.createElement("div");
+          if (unit.side === myTeam) {
+            const def = getPieceDef(key);
+            const boxed = !hasLegalMove(key);
+            piece.className = `mini-piece my-side ${myTeam}${boxed?" boxed":""}${selectedFromCell===key?" selected-piece":""}`;
+            piece.textContent = def ? def.short : "?";
+          } else {
+            piece.className = "mini-piece enemy";
+            piece.textContent = unit.revealed ? (getPieceDef(key)||{short:"?"}).short : "?";
+          }
+          cell.appendChild(piece);
+        }
+
+        cell.addEventListener("click", () => onMiniCellClick(key));
+        el.appendChild(cell);
+      }
+    }
+  }
+
+  function onMiniCellClick(key) {
+    if (!gameState || !gameState.board) return;
+    const unit = gameState.board[key];
+
+    if (!selectedFromCell) {
+      // Select a friendly piece
+      if (!unit || unit.eliminated || unit.side !== myTeam) return;
+      const def = getPieceDef(key);
+      if (def && def.movable === false) return; // can't move objective
+      if (!hasLegalMove(key)) return; // boxed in
+      selectedFromCell = key;
+      selectedToCell = null;
+      renderMoveScreen();
+    } else if (!selectedToCell) {
+      if (key === selectedFromCell) {
+        // Deselect
+        selectedFromCell = null;
+        renderMoveScreen();
+        return;
+      }
+      // Check if valid destination
+      if (!isAdjacent(selectedFromCell, key)) {
+        // Tapped a non-adjacent cell — maybe re-select a different piece
+        const tappedUnit = gameState.board[key];
+        if (tappedUnit && !tappedUnit.eliminated && tappedUnit.side === myTeam && hasLegalMove(key)) {
+          selectedFromCell = key;
+          selectedToCell = null;
+          renderMoveScreen();
+        }
+        return;
+      }
+      const occ = gameState.board[key];
+      if (occ && !occ.eliminated && occ.side === myTeam) {
+        // Tapped own piece as dest — re-select instead
+        selectedFromCell = key; selectedToCell = null;
+        renderMoveScreen(); return;
+      }
+      selectedToCell = key;
+      renderMoveScreen();
+    } else {
+      // Already have from+to, allow re-selection
+      selectedFromCell = key; selectedToCell = null;
+      renderMoveScreen();
+    }
+  }
+
+  function submitMoveVote() {
+    if (!selectedFromCell || !selectedToCell || !gameState || !FireState.isReady()) return;
+    const turnKey = buildTurnKey(gameState);
+    FireState.getOnce().then(current => {
+      const updated = current ? JSON.parse(JSON.stringify(current)) : {};
+      updated.votes = updated.votes || {};
+      updated.votes[turnKey] = updated.votes[turnKey] || {};
+      updated.votes[turnKey][safeId] = {
+        fromCell: selectedFromCell, toCell: selectedToCell,
+        side: myTeam, ts: Date.now()
+      };
+      return FireState.update({ votes: updated.votes });
+    }).then(() => {
+      myMoveVoteTurn = turnKey;
+      localStorage.setItem("cybergrid_moveTurn", turnKey);
+      showScreen("confirm"); renderConfirmScreen();
+    }).catch(err => { console.error("Move vote failed:", err); alert("Vote failed — check connection."); });
+  }
+
+  // ==================== CONFIRM SCREEN ====================
+
   function renderConfirmScreen() {
-    const card = SCENARIO_CARDS.find(c => c.id === myVote);
-    if (card) {
-      document.getElementById("voted-card-name").textContent = card.name;
-      document.getElementById("voted-card-desc").textContent = card.description;
+    const nameEl = document.getElementById("voted-display-name");
+    const descEl = document.getElementById("voted-display-desc");
+    const votePhase = gameState ? (gameState.votePhase||"card") : "card";
+
+    if (myCardVoteTurn && myMoveVoteTurn) {
+      // Both rounds voted
+      nameEl.textContent = "Move vote submitted";
+      descEl.textContent = selectedFromCell && selectedToCell
+        ? selectedFromCell + " → " + selectedToCell
+        : "Your move vote has been submitted.";
+    } else {
+      const card = selectedCardId ? SCENARIO_CARDS.find(c=>c.id===selectedCardId) : null;
+      if (card) {
+        nameEl.textContent = card.name;
+        descEl.textContent = votePhase === "move"
+          ? "Card vote registered. Move vote round is now open — return here to vote on the move."
+          : card.description;
+      } else {
+        nameEl.textContent = "Vote registered";
+        descEl.textContent = "";
+      }
     }
     renderTally();
   }
 
   function renderTally() {
     if (!gameState) return;
-    const currentTurnKey = gameState.turnKey || buildTurnKey(gameState);
+    const currentTurnKey = buildTurnKey(gameState);
     const allVotes = (gameState.votes && gameState.votes[currentTurnKey]) || {};
-    const myTeamVotes = Object.values(allVotes).filter(v => v.side === myTeam);
-    const config = gameState.votingConfig || {};
-    const expected = myTeam === "blue" ? (config.blueExpected || 5) : (config.redExpected || 5);
-    const quorum = Math.ceil(expected / 2);
+    const side = myTeam;
+    const expected = expectedFor(side);
+    const quorum = quorumFor(expected);
+    const votePhase = gameState.votePhase || "card";
+    const sideClass = side === "blue" ? "blue-fill" : "red-fill";
 
-    // Tally by card
-    const tally = {};
-    myTeamVotes.forEach(v => { tally[v.cardId] = (tally[v.cardId] || 0) + 1; });
-    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
-    const totalVotes = myTeamVotes.length;
-    const sideClass = myTeam === "blue" ? "blue-fill" : "red-fill";
+    // Build tally based on current phase
+    let tally = {}, totalVotes = 0;
+    if (votePhase === "card") {
+      Object.values(allVotes).forEach(v => {
+        if (v.side === side && v.cardId) { tally[v.cardId] = (tally[v.cardId]||0)+1; totalVotes++; }
+      });
+    } else {
+      Object.values(allVotes).forEach(v => {
+        if (v.side === side && v.fromCell && v.toCell) {
+          const k = v.fromCell+"|"+v.toCell; tally[k] = (tally[k]||0)+1; totalVotes++;
+        }
+      });
+    }
+    const sorted = Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+    const winnerEntry = sorted.find(([,c])=>c>=quorum);
 
     const container = document.getElementById("tally-section");
     container.innerHTML = "";
-
     if (sorted.length === 0) {
-      container.innerHTML = `<div style="font-family:var(--font-mono);font-size:12px;color:var(--text-low);text-align:center">No votes yet…</div>`;
+      container.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-low);text-align:center">No votes yet…</div>`;
     } else {
-      sorted.forEach(([cardId, count]) => {
-        const card = SCENARIO_CARDS.find(c => c.id === cardId);
-        const pct = Math.round((count / expected) * 100);
+      sorted.slice(0,6).forEach(([key, count]) => {
+        let label = key;
+        if (votePhase === "card") {
+          const card = SCENARIO_CARDS.find(c=>c.id===key);
+          label = card ? card.name : key;
+        } else {
+          const [from,to] = key.split("|");
+          const unit = gameState.board && gameState.board[from];
+          const def = unit ? (unit.side==="blue"?BLUE_PIECES:RED_PIECES).find(p=>p.id===unit.pieceId) : null;
+          label = (def ? def.short : from) + " → " + to;
+        }
+        const pct = Math.min(100, Math.round((count/expected)*100));
         const isWinner = count >= quorum;
-        const row = document.createElement("div");
-        row.className = "tally-row";
-        row.innerHTML = `
-          <div class="tally-label">
-            <span>${card ? card.name : cardId}</span>
-            <span>${count} vote${count !== 1 ? "s" : ""} / ${quorum} needed</span>
-          </div>
-          <div class="tally-bar-track">
-            <div class="tally-bar-fill ${isWinner ? "winner" : sideClass}" style="width:${Math.min(pct, 100)}%"></div>
-          </div>
-        `;
+        const row = document.createElement("div"); row.className = "tally-row";
+        row.innerHTML = `<div class="tally-label"><span>${isWinner?"✓ ":""}${label}</span><span>${count}/${quorum} needed</span></div><div class="tally-bar-track"><div class="tally-bar-fill ${isWinner?"winner":sideClass}" style="width:${pct}%"></div></div>`;
         container.appendChild(row);
       });
     }
 
-    // Quorum notice
     const notice = document.getElementById("quorum-notice");
-    const winner = sorted.find(([, count]) => count >= quorum);
-    if (winner) {
-      const winCard = SCENARIO_CARDS.find(c => c.id === winner[0]);
+    if (winnerEntry) {
+      let winLabel = winnerEntry[0];
+      if (votePhase === "card") {
+        const wc = SCENARIO_CARDS.find(c=>c.id===winnerEntry[0]);
+        winLabel = wc ? wc.name : winLabel;
+        notice.textContent = `✓ Quorum reached — "${winLabel}" will be played!`;
+      } else {
+        const [from,to] = winnerEntry[0].split("|");
+        notice.textContent = `✓ Quorum reached — move ${from} → ${to} will be played!`;
+      }
       notice.style.display = "block";
-      notice.textContent = `✓ Quorum reached — "${winCard ? winCard.name : winner[0]}" will be played!`;
     } else {
       notice.style.display = "none";
     }
 
-    // Total voters info
     const info = document.createElement("div");
-    info.style.cssText = "font-family:var(--font-mono);font-size:10px;color:var(--text-low);text-align:center;margin-top:4px;";
-    info.textContent = `${totalVotes} of ${expected} expected votes cast`;
+    info.className = "vote-count-info";
+    info.textContent = `${totalVotes} of ${expected} expected ${votePhase} votes cast`;
     container.appendChild(info);
   }
 
-  // ---- Watch Firebase ----
-  FireState.subscribe((state, err) => {
+  // ==================== FIREBASE SUBSCRIPTION ====================
+
+  FireState.subscribe((s, err) => {
     if (err) { setConn(false); return; }
     setConn(true);
-    if (!state) return;
+    if (!s) { gameState = null; if (myTeam) routeToCorrectScreen(); return; }
 
-    const prevTurnKey = gameState ? (gameState.turnKey || buildTurnKey(gameState)) : null;
-    gameState = state;
-    const currentTurnKey = state.turnKey || buildTurnKey(state);
+    const prevTurnKey = gameState ? buildTurnKey(gameState) : null;
+    const prevVotePhase = gameState ? (gameState.votePhase||"card") : "card";
+    gameState = s;
+    const currentTurnKey = buildTurnKey(s);
 
-    // If turn changed and we voted last turn, reset
+    // Turn changed — reset everything
     if (prevTurnKey && currentTurnKey !== prevTurnKey) {
-      myVote = null;
-      selectedCardId = null;
-      localStorage.removeItem("cybergrid_voteTurn");
-      localStorage.removeItem("cybergrid_voteCard");
-      if (myTeam) {
-        showScreen("vote");
-        renderVoteScreen();
-        return;
+      selectedCardId = null; selectedFromCell = null; selectedToCell = null;
+      myCardVoteTurn = null; myMoveVoteTurn = null;
+      localStorage.removeItem("cybergrid_cardTurn");
+      localStorage.removeItem("cybergrid_moveTurn");
+    }
+
+    // VotePhase flipped from card→move: if we already voted on card, auto-go to move screen
+    if (prevVotePhase === "card" && (s.votePhase||"card") === "move" && myTeam && s.turn === myTeam) {
+      if (myCardVoteTurn === currentTurnKey) {
+        // Already cast card vote — now show move voting
+        showScreen("move"); renderMoveScreen(); return;
       }
     }
 
-    // Update whichever screen is active
-    const activeScreen = Object.keys(screens).find(k => screens[k].classList.contains("active"));
-    if (activeScreen === "vote") renderVoteScreen();
-    if (activeScreen === "confirm") renderTally();
+    if (!myTeam) return;
+
+    // Update currently-visible screen
+    const activeScreen = Object.keys(screens).find(k=>screens[k].classList.contains("active"));
+    if (activeScreen === "card") renderCardScreen();
+    else if (activeScreen === "move") renderMoveScreen();
+    else if (activeScreen === "confirm") renderTally();
+    else routeToCorrectScreen();
   });
 
-  // ---- Boot ----
   FireState.init();
-
-  // Short delay to let Firebase connect before restoring session
-  setTimeout(() => {
-    if (gameState) restoreSession();
-    // if not connected yet, restoreSession will be called in the subscribe callback
-  }, 800);
+  if (myTeam) setTimeout(() => { if (gameState) routeToCorrectScreen(); }, 300);
 
 })();
 </script>

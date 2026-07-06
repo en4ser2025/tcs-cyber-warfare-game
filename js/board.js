@@ -250,12 +250,7 @@
   function renderVoteStrip(state) {
     const strip = document.getElementById("vote-strip");
     if (!strip) return;
-
-    if (state.phase !== "playing") {
-      strip.style.display = "none";
-      return;
-    }
-
+    if (state.phase !== "playing") { strip.style.display = "none"; return; }
     strip.style.display = "flex";
     renderQR();
 
@@ -263,61 +258,65 @@
     const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + side);
     const allVotes = (state.votes && state.votes[currentTurnKey]) || {};
     const cfg = state.votingConfig || {};
-    const expected = side === "blue" ? (cfg.blueExpected || 5) : (cfg.redExpected || 5);
+    const expected = side === "blue" ? (cfg.blueExpected||5) : (cfg.redExpected||5);
     const quorum = Math.ceil(expected / 2);
-
-    // Build tally for current side
-    const tally = {};
-    Object.values(allVotes).forEach(v => {
-      if (v.side === side) tally[v.cardId] = (tally[v.cardId] || 0) + 1;
-    });
-    const totalVotes = Object.values(allVotes).filter(v => v.side === side).length;
-    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
-    const winnerEntry = sorted.find(([, c]) => c >= quorum);
+    const votePhase = state.votePhase || "card";
     const fillClass = side === "blue" ? "blue-fill" : "red-fill";
+
+    // Build tally for current phase
+    const tally = {};
+    let totalVotes = 0;
+    if (votePhase === "card") {
+      Object.values(allVotes).forEach(v => {
+        if (v.side === side && v.cardId) { tally[v.cardId] = (tally[v.cardId]||0)+1; totalVotes++; }
+      });
+    } else {
+      Object.values(allVotes).forEach(v => {
+        if (v.side === side && v.fromCell && v.toCell) {
+          const k = v.fromCell + "|" + v.toCell; tally[k] = (tally[k]||0)+1; totalVotes++;
+        }
+      });
+    }
+    const sorted = Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+    const winnerEntry = sorted.find(([,c])=>c>=quorum);
 
     const tallyEl = document.getElementById("vote-strip-tally");
     tallyEl.innerHTML = "";
-
-    // Header line
+    const phaseLabel = votePhase === "card" ? "Round 1 — Card vote" : "Round 2 — Move vote";
     const hdr = document.createElement("div");
-    hdr.style.cssText = "font-family:var(--font-mono);font-size:10px;color:var(--text-low);margin-bottom:4px;";
-    hdr.textContent = `${side.toUpperCase()} — ${totalVotes}/${expected} votes (need ${quorum})`;
+    hdr.style.cssText = "font-family:var(--font-mono);font-size:10px;color:var(--text-low);margin-bottom:3px;";
+    hdr.textContent = `${side.toUpperCase()} · ${phaseLabel} · ${totalVotes}/${expected} (need ${quorum})`;
     tallyEl.appendChild(hdr);
 
     if (sorted.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "vote-no-votes";
-      empty.textContent = "Waiting for votes…";
-      tallyEl.appendChild(empty);
+      const empty = document.createElement("div"); empty.className = "vote-no-votes";
+      empty.textContent = "Waiting for votes…"; tallyEl.appendChild(empty);
     } else {
-      sorted.slice(0, 5).forEach(([cardId, count]) => {
-        const card = SCENARIO_CARDS.find(c => c.id === cardId);
-        const pct = Math.min(100, Math.round((count / expected) * 100));
+      sorted.slice(0,4).forEach(([key, count]) => {
+        let label = key;
+        if (votePhase === "card") {
+          const card = SCENARIO_CARDS.find(c=>c.id===key);
+          label = card ? card.name : key;
+        } else {
+          const [from,to] = key.split("|");
+          label = from + " → " + to;
+        }
+        const pct = Math.min(100, Math.round((count/expected)*100));
         const isWin = count >= quorum;
-        const row = document.createElement("div");
-        row.className = "vote-tally-row";
-        row.innerHTML = `
-          <div class="vote-tally-label">
-            <span>${isWin ? "✓ " : ""}${card ? card.name : cardId}</span>
-            <span>${count}/${quorum}</span>
-          </div>
-          <div class="vote-tally-track">
-            <div class="vote-tally-fill ${isWin ? "won" : fillClass}" style="width:${pct}%"></div>
-          </div>`;
+        const row = document.createElement("div"); row.className = "vote-tally-row";
+        row.innerHTML = `<div class="vote-tally-label"><span>${isWin?"✓ ":""}${label}</span><span>${count}/${quorum}</span></div><div class="vote-tally-track"><div class="vote-tally-fill ${isWin?"won":fillClass}" style="width:${pct}%"></div></div>`;
         tallyEl.appendChild(row);
       });
     }
 
-    // Quorum notice
     const quorumEl = document.getElementById("vote-strip-quorum");
     if (winnerEntry) {
-      const winCard = SCENARIO_CARDS.find(c => c.id === winnerEntry[0]);
+      let winLabel = winnerEntry[0];
+      if (votePhase === "card") { const wc = SCENARIO_CARDS.find(c=>c.id===winnerEntry[0]); winLabel = wc?wc.name:winLabel; }
+      else { const [f,t] = winnerEntry[0].split("|"); winLabel = f+" → "+t; }
       quorumEl.style.display = "block";
-      quorumEl.textContent = `✓ QUORUM — "${winCard ? winCard.name : winnerEntry[0]}" selected!`;
-    } else {
-      quorumEl.style.display = "none";
-    }
+      quorumEl.textContent = `✓ QUORUM — "${winLabel}" selected!`;
+    } else { quorumEl.style.display = "none"; }
   }
 
   // ---- Main render dispatch ----

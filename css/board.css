@@ -229,7 +229,7 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   grid-template-rows: repeat(8, 1fr);
   /* Fill the available 1fr height, remain square */
   width: 100%;
-  max-height: calc(100vh - 280px);
+  max-height: calc(100vh - 340px);
   aspect-ratio: 1 / 1;
   border-radius: 6px;
   overflow: hidden;

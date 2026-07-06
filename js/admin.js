@@ -84,7 +84,14 @@
     });
 
     document.getElementById("vote-apply-btn").addEventListener("click", () => {
-      applyWinningVote(true);  // manual override — apply regardless of quorum
+      const votePhase = state && state.votePhase || "card";
+      if (votePhase === "move") {
+        const moveTally = buildMoveTally(state.turn);
+        const sorted = Object.entries(moveTally).sort((a, b) => b[1] - a[1]);
+        if (sorted.length) applyWinningMove(sorted[0][0]);
+      } else {
+        applyWinningVote(true);
+      }
     });
 
     document.getElementById("vote-reset-btn").addEventListener("click", () => {
@@ -154,7 +161,7 @@
       const nextTurnNumber = next === "blue" ? (state.turnNumber || 1) + 1 : state.turnNumber || 1;
       const nextTurnKey = "t" + nextTurnNumber + "-" + next;
       selectedCell = null; selectedCardId = null;
-      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {} });
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card" });
     });
   }
 
@@ -426,11 +433,9 @@
     const nextTurnKey = "t" + nextTurnNumber + "-" + next;
     selectedCell = null;
     selectedCardId = null;
-    // Small delay so the move animation / resolve result is visible before the turn banner flips
     setTimeout(() => {
-      // Re-check phase — win condition may have been applied during this action
       if (!state || state.phase !== "playing") return;
-      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {} });
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card" });
       logEvent("system", `Turn ended automatically — now ${next.toUpperCase()}'s turn (#${nextTurnNumber}).`);
     }, 1200);
   }
@@ -921,69 +926,97 @@
     }
 
     const side = state.turn;
-    const tally = buildTally(side);
+    const votePhase = state.votePhase || "card";
     const quorum = quorumFor(side);
-    const totalVotes = totalVotesFor(side);
     const cfg = state.votingConfig || {};
     const expected = side === "blue" ? (cfg.blueExpected || 5) : (cfg.redExpected || 5);
-    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
-    const winner = sorted.find(([, count]) => count >= quorum);
-
     container.innerHTML = "";
 
-    // Turn label
-    const turnLabel = document.createElement("div");
-    turnLabel.style.cssText = "font-family:var(--font-mono);font-size:11px;color:var(--text-mid);margin-bottom:4px;";
-    turnLabel.textContent = `${side.toUpperCase()} turn — ${totalVotes}/${expected} votes cast (quorum: ${quorum})`;
-    container.appendChild(turnLabel);
+    // Phase label
+    const phaseLabel = document.createElement("div");
+    phaseLabel.style.cssText = "font-family:var(--font-mono);font-size:11px;color:var(--text-mid);margin-bottom:4px;";
 
-    if (sorted.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "helper-text";
-      empty.style.padding = "0";
-      empty.textContent = "No votes yet this turn.";
-      container.appendChild(empty);
+    if (votePhase === "card") {
+      const tally = buildTally(side);
+      const totalVotes = totalVotesFor(side);
+      const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+      const winner = sorted.find(([, count]) => count >= quorum);
+      phaseLabel.textContent = `Round 1 — Card vote: ${side.toUpperCase()} ${totalVotes}/${expected} (quorum: ${quorum})`;
+      container.appendChild(phaseLabel);
+
+      if (sorted.length === 0) {
+        const empty = document.createElement("div"); empty.className = "helper-text"; empty.style.padding = "0";
+        empty.textContent = "No card votes yet."; container.appendChild(empty);
+      } else {
+        sorted.forEach(([cardId, count]) => {
+          const card = SCENARIO_CARDS.find(c => c.id === cardId);
+          const pct = Math.min(100, Math.round((count / expected) * 100));
+          const isWin = count >= quorum;
+          const colorVar = isWin ? "var(--green)" : (side === "blue" ? "var(--blue-core)" : "var(--red-core)");
+          const row = document.createElement("div"); row.style.cssText = "display:flex;flex-direction:column;gap:2px;";
+          row.innerHTML = `<div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text-mid);"><span>${isWin ? "✓ " : ""}${card ? card.name : cardId}</span><span>${count}/${quorum}</span></div><div style="height:6px;border-radius:99px;background:var(--bg-raised);overflow:hidden;"><div style="height:100%;border-radius:99px;width:${pct}%;background:${colorVar};transition:width 0.4s ease;"></div></div>`;
+          container.appendChild(row);
+        });
+      }
+      if (applyBtn) applyBtn.disabled = !winner && sorted.length === 0;
+
     } else {
-      sorted.forEach(([cardId, count]) => {
-        const card = SCENARIO_CARDS.find(c => c.id === cardId);
-        const pct = Math.min(100, Math.round((count / expected) * 100));
-        const isWin = count >= quorum;
-        const colorVar = isWin ? "var(--green)" : (side === "blue" ? "var(--blue-core)" : "var(--red-core)");
-        const row = document.createElement("div");
-        row.style.cssText = "display:flex;flex-direction:column;gap:2px;";
-        row.innerHTML = `
-          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text-mid);">
-            <span>${isWin ? "✓ " : ""}${card ? card.name : cardId}</span>
-            <span>${count}/${quorum} needed</span>
-          </div>
-          <div style="height:6px;border-radius:99px;background:var(--bg-raised);overflow:hidden;">
-            <div style="height:100%;border-radius:99px;width:${pct}%;background:${colorVar};transition:width 0.4s ease;"></div>
-          </div>`;
-        container.appendChild(row);
-      });
-    }
+      // Move vote phase
+      const moveTally = buildMoveTally(side);
+      const moveSorted = Object.entries(moveTally).sort((a, b) => b[1] - a[1]);
+      const moveWinner = moveSorted.find(([, count]) => count >= quorum);
+      const totalMoveVotes = Object.values(moveTally).reduce((s, c) => s + c, 0);
+      phaseLabel.textContent = `Round 2 — Move vote: ${side.toUpperCase()} ${totalMoveVotes}/${expected} (quorum: ${quorum})`;
+      container.appendChild(phaseLabel);
 
-    if (applyBtn) applyBtn.disabled = !winner && sorted.length === 0;
+      if (moveSorted.length === 0) {
+        const empty = document.createElement("div"); empty.className = "helper-text"; empty.style.padding = "0";
+        empty.textContent = "Waiting for move votes on phones…"; container.appendChild(empty);
+      } else {
+        moveSorted.slice(0, 5).forEach(([moveKey, count]) => {
+          const [from, to] = moveKey.split("|");
+          const unit = state.board && state.board[from];
+          const def = unit ? GameEngine.findPieceDef(unit.pieceId) : null;
+          const label = def ? `${def.short} ${from}→${to}` : `${from}→${to}`;
+          const pct = Math.min(100, Math.round((count / expected) * 100));
+          const isWin = count >= quorum;
+          const colorVar = isWin ? "var(--green)" : (side === "blue" ? "var(--blue-core)" : "var(--red-core)");
+          const row = document.createElement("div"); row.style.cssText = "display:flex;flex-direction:column;gap:2px;";
+          row.innerHTML = `<div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text-mid);"><span>${isWin ? "✓ " : ""}${label}</span><span>${count}/${quorum}</span></div><div style="height:6px;border-radius:99px;background:var(--bg-raised);overflow:hidden;"><div style="height:100%;border-radius:99px;width:${pct}%;background:${colorVar};transition:width 0.4s ease;"></div></div>`;
+          container.appendChild(row);
+        });
+      }
+      if (applyBtn) applyBtn.disabled = !moveWinner;
+    }
   }
 
-  /** Check if quorum has been reached — auto-apply the winning card */
-  let lastAutoAppliedTurnKey = null;  // prevent double-firing
+  /** Check if quorum has been reached for whichever votePhase we're in */
+  let lastAutoAppliedTurnKey = null;
+  let lastAutoAppliedMoveKey = null;
+
   function checkQuorum() {
     if (!state || state.phase !== "playing") return;
-    const side = state.turn;
-    const tally = buildTally(side);
-    const quorum = quorumFor(side);
-    const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
-    const winner = Object.entries(tally).find(([, count]) => count >= quorum);
+    const votePhase = state.votePhase || "card";
 
-    if (winner && currentTurnKey !== lastAutoAppliedTurnKey) {
-      lastAutoAppliedTurnKey = currentTurnKey;
-      applyWinningVote(false, winner[0]);
+    if (votePhase === "card") {
+      const side = state.turn;
+      const tally = buildTally(side);
+      const quorum = quorumFor(side);
+      const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
+      const winner = Object.entries(tally).find(([, count]) => count >= quorum);
+
+      if (winner && currentTurnKey !== lastAutoAppliedTurnKey) {
+        lastAutoAppliedTurnKey = currentTurnKey;
+        applyWinningCard(false, winner[0]);
+      }
+    } else if (votePhase === "move") {
+      checkMoveQuorum();
     }
   }
 
-  /** Apply the winning voted card — selects it in the card list for the admin to then move a piece */
-  function applyWinningVote(manualOverride, overrideCardId) {
+  /** Phase 1 quorum: card selected — flip votePhase to 'move' for special cards
+   *  or arm the card and open move voting for engage/move cards */
+  function applyWinningCard(manualOverride, overrideCardId) {
     if (!state || state.phase !== "playing") return;
     const side = state.turn;
 
@@ -1000,31 +1033,88 @@
 
     const source = manualOverride ? "Admin applied" : "Quorum reached — auto-applied";
     logEvent(side, `${source}: "${card.name}" selected for ${side.toUpperCase()}.`);
-
-    // Update active scenario on the public board so everyone sees it
     FireState.update({ activeScenario: { side, cardId } });
 
     if (card.type === "special") {
-      // Special cards take effect immediately (no board move needed)
-      // handleSpecialCard applies the effect and already calls FireState.update
       handleSpecialCard(card);
       selectedCardId = null;
       renderCardList();
       renderTurnInstruction();
       renderVoteTally();
-      // Auto-end turn since no board move is required
       autoEndTurn();
     } else {
-      // Engage/move cards: arm the card in the UI so the admin can
-      // click the board piece to complete the move.
-      // autoEndTurn() fires naturally inside completeSimpleMove/applyResolution.
+      // Arm card in admin UI and open move-vote phase
       cardFilterToggle(side);
       selectedCardId = cardId;
       renderCardList();
       renderTurnInstruction();
+      // Flip to move-voting phase — clears card votes, opens move round on phones
+      FireState.update({ votePhase: "move", votes: {} });
+      logEvent(side, `Move vote now open — participants choose piece and destination on their phones.`);
+      flashHint(`"${card.name}" armed — move vote open on phones. Or click a piece on the board directly.`);
       renderVoteTally();
-      flashHint(`"${card.name}" armed — now click a ${side.toUpperCase()} piece on the board to complete the move.`);
     }
   }
 
+  /** Kept for backwards-compat: manual Apply Winning Card button */
+  function applyWinningVote(manualOverride, overrideCardId) {
+    applyWinningCard(manualOverride, overrideCardId);
+  }
+
+  /** Phase 2 quorum: move selected — execute it on the board */
+  function checkMoveQuorum() {
+    if (!state || state.phase !== "playing") return;
+    const side = state.turn;
+    const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
+    const moveTally = buildMoveTally(side);
+    const quorum = quorumFor(side);
+    const moveKey = currentTurnKey + "-move";
+
+    const winner = Object.entries(moveTally).find(([, count]) => count >= quorum);
+    if (winner && moveKey !== lastAutoAppliedMoveKey) {
+      lastAutoAppliedMoveKey = moveKey;
+      applyWinningMove(winner[0]);
+    }
+  }
+
+  /** Build tally for move votes: key is "fromCell|toCell" */
+  function buildMoveTally(side) {
+    if (!state) return {};
+    const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
+    const allVotes = (state.votes && state.votes[currentTurnKey]) || {};
+    const tally = {};
+    Object.values(allVotes).forEach(v => {
+      if (v.side === side && v.fromCell && v.toCell) {
+        const k = v.fromCell + "|" + v.toCell;
+        tally[k] = (tally[k] || 0) + 1;
+      }
+    });
+    return tally;
+  }
+
+  /** Execute the winning move from the move-vote phase */
+  function applyWinningMove(moveKey) {
+    const [fromCell, toCell] = moveKey.split("|");
+    if (!fromCell || !toCell) return;
+    if (!state.board[fromCell]) return;
+
+    const fromUnit = state.board[fromCell];
+    const toUnit = state.board[toCell];
+
+    logEvent(fromUnit.side, `Move vote quorum: ${pieceLabel(fromUnit)} moves from ${fromCell} to ${toCell}.`);
+
+    if (!toUnit || toUnit.eliminated) {
+      // Simple move
+      pendingMove = { fromCell, toCell, type: "move" };
+      completeSimpleMove();
+    } else if (toUnit.side !== fromUnit.side) {
+      // Clash — open resolve panel for admin to adjudicate
+      selectedCell = fromCell;
+      pendingMove = { fromCell, toCell, type: "clash" };
+      openResolvePanel();
+      flashHint(`Move-voted clash: ${pieceLabel(fromUnit)} vs ${pieceLabel(toUnit)}. Resolve the clash.`);
+    } else {
+      logEvent("system", `Voted move ${fromCell}→${toCell} invalid (friendly piece there). Admin to resolve.`);
+    }
+  }
 })();

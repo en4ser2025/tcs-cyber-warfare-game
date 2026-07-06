@@ -1,31 +1,5 @@
 /* ============================================================
    CYBER GRID :: STATE SHAPE
-   The single source of truth for what a "game state" object
-   looks like in Firebase at /games/{GAME_ID}.
-
-   {
-     phase: 'setup' | 'playing' | 'ended',
-     turn: 'blue' | 'red',
-     turnNumber: 1,
-     detectionMeter: 0-100,
-     winner: null | 'blue' | 'red',
-     winReason: null | string,
-     board: {
-       "r,c": {
-         side: 'blue'|'red',
-         pieceId: 'fw'|'analyst'|...,
-         instanceId: 'blue-fw-1',
-         revealed: boolean,        // true once identity is publicly known
-         eliminated: false
-       }, ...
-     },
-     pendingClash: null | {
-       fromCell, toCell, attackerInstanceId, defenderInstanceId,
-       attackerCardId, defenderCardId, resolution: {...} | null
-     },
-     activeScenario: null | { side, cardId, cellRef, note },  // shown on public board banner
-     log: { pushId: { ts, side, text, type } }
-   }
    ============================================================ */
 
 function buildEmptyState() {
@@ -33,7 +7,7 @@ function buildEmptyState() {
     phase: "setup",
     turn: "blue",
     turnNumber: 1,
-    turnKey: "t1-blue",          // changes every End Turn — used as vote namespace
+    turnKey: "t1-blue",
     detectionMeter: 0,
     winner: null,
     winReason: null,
@@ -41,8 +15,9 @@ function buildEmptyState() {
     eliminated: { blue: {}, red: {} },
     pendingClash: null,
     activeScenario: null,
-    votes: {},                    // votes[turnKey][deviceId] = {cardId, side, ts}
-    votingConfig: {               // set by admin before game starts
+    votes: {},
+    votePhase: "card",        // 'card' then 'move' each turn
+    votingConfig: {
       blueExpected: 5,
       redExpected: 5,
       enabled: true
@@ -51,7 +26,6 @@ function buildEmptyState() {
   };
 }
 
-/** Returns the list of {pieceId, side} instances a side must place during setup. */
 function buildSetupBank(side) {
   const roster = side === "blue" ? BLUE_PIECES : RED_PIECES;
   const bank = [];
