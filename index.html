@@ -35,6 +35,17 @@
       <div id="qr-code"></div>
       <div class="vote-strip-qr-label">Scan to vote</div>
     </div>
+    <!-- Countdown timer ring -->
+    <div class="vote-timer-wrap" id="vote-timer-wrap" style="display:none;">
+      <div class="vote-timer-ring">
+        <svg viewBox="0 0 44 44"><circle class="ring-bg" cx="22" cy="22" r="18"/><circle class="ring-fill" id="board-ring-fill" cx="22" cy="22" r="18"/></svg>
+        <div class="vote-timer-num" id="board-timer-num">20</div>
+      </div>
+      <div>
+        <div class="vote-timer-phase" id="board-timer-phase">Card vote</div>
+        <div class="vote-timer-label" id="board-timer-label">seconds remaining</div>
+      </div>
+    </div>
     <div class="vote-strip-tally" id="vote-strip-tally"></div>
     <div class="vote-strip-quorum" id="vote-strip-quorum" style="display:none;"></div>
   </div>

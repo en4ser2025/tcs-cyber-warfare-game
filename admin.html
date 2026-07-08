@@ -150,6 +150,18 @@
             <button class="btn btn-sm btn-ghost" id="vote-config-save-btn" style="flex:1;">&#x2713; Save</button>
           </div>
           <div class="eyebrow">Live Tally — Current Turn</div>
+          <!-- Countdown timer -->
+          <div class="admin-timer-wrap" id="admin-timer-wrap" style="display:none;">
+            <div class="admin-timer-ring">
+              <svg viewBox="0 0 38 38"><circle class="ring-bg" cx="19" cy="19" r="15.5"/><circle class="ring-fill" id="admin-ring-fill" cx="19" cy="19" r="15.5"/></svg>
+              <div class="admin-timer-num" id="admin-timer-num">20</div>
+            </div>
+            <div>
+              <div style="font-family:var(--font-head);font-size:12px;font-weight:600;color:var(--text-mid)" id="admin-timer-phase">Card vote</div>
+              <div class="admin-timer-label">seconds remaining</div>
+            </div>
+            <button class="btn btn-sm btn-ghost" id="timer-reset-btn" style="margin-left:auto;">↺ Reset</button>
+          </div>
           <div id="vote-tally-container">
             <div class="helper-text" style="padding:0;color:var(--text-low);">Game not started.</div>
           </div>

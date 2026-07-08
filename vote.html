@@ -135,6 +135,21 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   <span id="conn-text">connecting…</span>
 </div>
 
+<!-- Countdown timer — shown during voting phases -->
+<div id="vote-countdown-wrap" style="display:none;align-items:center;gap:10px;padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;">
+  <div style="position:relative;width:48px;height:48px;flex-shrink:0;">
+    <svg style="transform:rotate(-90deg);width:48px;height:48px;" viewBox="0 0 48 48">
+      <circle fill="none" stroke="var(--raised)" stroke-width="4" cx="24" cy="24" r="20"/>
+      <circle fill="none" stroke="var(--green)" stroke-width="4" stroke-linecap="round" stroke-dasharray="125.7" id="vote-ring-fill" cx="24" cy="24" r="20" style="transition:stroke-dashoffset 1s linear,stroke 0.3s;"/>
+    </svg>
+    <div id="vote-countdown-num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:16px;font-weight:900;color:var(--text-hi);">20</div>
+  </div>
+  <div>
+    <div id="vote-countdown-phase" style="font-family:var(--font-head);font-size:13px;font-weight:600;color:var(--text-mid);">Card vote</div>
+    <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-low);">seconds to vote</div>
+  </div>
+</div>
+
 <!-- SCREEN 1: Team picker -->
 <div class="screen active" id="screen-team">
   <div class="round-label">Choose your team</div>
@@ -203,6 +218,34 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   let gameState = null;
   let myTeam = localStorage.getItem("cybergrid_team") || null;
   let selectedCardId = null;
+  let voteCountdownInterval = null;
+  const VOTE_DURATION_S = 20;
+  const RING_CIRCUMFERENCE = 125.7; // 2π × 20
+
+  function startVoteCountdownDisplay(deadline, phase) {
+    if (voteCountdownInterval) { clearInterval(voteCountdownInterval); voteCountdownInterval = null; }
+    const wrap = document.getElementById("vote-countdown-wrap");
+    const numEl = document.getElementById("vote-countdown-num");
+    const fillEl = document.getElementById("vote-ring-fill");
+    const phaseEl = document.getElementById("vote-countdown-phase");
+    if (!wrap) return;
+
+    wrap.style.display = "flex";
+    phaseEl.textContent = phase === "card" ? "Card vote" : "Move vote";
+
+    function tick() {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      numEl.textContent = remaining;
+      const pct = remaining / VOTE_DURATION_S;
+      fillEl.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - pct);
+      if (remaining <= 5) fillEl.style.stroke = "var(--red)";
+      else if (remaining <= 10) fillEl.style.stroke = "var(--amber)";
+      else fillEl.style.stroke = "var(--green)";
+      if (remaining <= 0) { clearInterval(voteCountdownInterval); voteCountdownInterval = null; wrap.style.display = "none"; }
+    }
+    tick();
+    voteCountdownInterval = setInterval(tick, 500);
+  }
   let selectedFromCell = null;
   let selectedToCell = null;
   let myCardVoteTurn = localStorage.getItem("cybergrid_cardTurn") || null;
@@ -243,6 +286,10 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   function chooseTeam(side) {
     myTeam = side;
     localStorage.setItem("cybergrid_team", side);
+    // Start countdown immediately if a deadline is already active for this side's turn
+    if (gameState && gameState.phase === "playing" && gameState.turn === side && gameState.voteDeadline) {
+      startVoteCountdownDisplay(gameState.voteDeadline, gameState.votePhase || "card");
+    }
     routeToCorrectScreen();
   }
 
@@ -351,6 +398,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     }).then(() => {
       myCardVoteTurn = turnKey;
       localStorage.setItem("cybergrid_cardTurn", turnKey);
+      localStorage.setItem("cybergrid_voteCard", selectedCardId);
       showScreen("confirm"); renderConfirmScreen();
     }).catch(err => { console.error("Card vote failed:", err); alert("Vote failed — check connection."); });
   }
@@ -643,6 +691,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 
     const prevTurnKey = gameState ? buildTurnKey(gameState) : null;
     const prevVotePhase = gameState ? (gameState.votePhase||"card") : "card";
+    const prevDeadline = gameState ? gameState.voteDeadline : null;
     gameState = s;
     const currentTurnKey = buildTurnKey(s);
 
@@ -652,6 +701,16 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       myCardVoteTurn = null; myMoveVoteTurn = null;
       localStorage.removeItem("cybergrid_cardTurn");
       localStorage.removeItem("cybergrid_moveTurn");
+    }
+
+    // Start/update countdown when voteDeadline changes or votePhase changes
+    if (s.voteDeadline && s.phase === "playing" && s.turn === myTeam &&
+        (s.voteDeadline !== prevDeadline || (s.votePhase||"card") !== prevVotePhase)) {
+      startVoteCountdownDisplay(s.voteDeadline, s.votePhase || "card");
+    } else if (s.phase !== "playing" || !s.voteDeadline) {
+      if (voteCountdownInterval) { clearInterval(voteCountdownInterval); voteCountdownInterval = null; }
+      const wrap = document.getElementById("vote-countdown-wrap");
+      if (wrap) wrap.style.display = "none";
     }
 
     // VotePhase flipped from card→move: if we already voted on card, auto-go to move screen
