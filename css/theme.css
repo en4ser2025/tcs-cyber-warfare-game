@@ -179,3 +179,68 @@ a { color: var(--blue-core); }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+
+/* ============================================================
+   PIECE ELIMINATION ANIMATIONS
+   Shared by board.css (public) and admin board cells.
+   A class of .zap-out is added to the cell by JS just before
+   the piece is removed from the DOM; the animation runs for
+   600ms then the class is cleaned up.
+   ============================================================ */
+
+/* The main "ZAP" — electric discharge burst */
+@keyframes zap-flash {
+  0%   { transform: scale(1);    opacity: 1; filter: brightness(1);   }
+  10%  { transform: scale(1.5);  opacity: 1; filter: brightness(8) saturate(0); }
+  20%  { transform: scale(0.9);  opacity: 0.8; filter: brightness(1); }
+  35%  { transform: scale(1.6);  opacity: 1; filter: brightness(6) hue-rotate(30deg); }
+  55%  { transform: scale(1.2);  opacity: 0.6; filter: brightness(1); }
+  75%  { transform: scale(0.6);  opacity: 0.3; filter: brightness(3); }
+  100% { transform: scale(0.05); opacity: 0; filter: brightness(0);   }
+}
+
+/* Spark ring that expands outward */
+@keyframes zap-ring {
+  0%   { transform: scale(0.5); opacity: 0.9; }
+  60%  { transform: scale(2.2); opacity: 0.5; }
+  100% { transform: scale(3);   opacity: 0;   }
+}
+
+/* Cell flash (background) */
+@keyframes zap-cell {
+  0%   { background: inherit; }
+  15%  { background: rgba(255,220,50,0.8); }
+  30%  { background: rgba(255,80,80,0.6); }
+  60%  { background: rgba(255,80,80,0.2); }
+  100% { background: inherit; }
+}
+
+.zap-out {
+  animation: zap-cell 0.6s ease-out forwards;
+  position: relative;
+  overflow: visible !important;
+}
+.zap-out .piece,
+.zap-out .admin-piece {
+  animation: zap-flash 0.6s ease-out forwards !important;
+  transform-origin: center center;
+  z-index: 10;
+  position: relative;
+}
+.zap-out::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--amber);
+  box-shadow: 0 0 12px var(--amber), 0 0 24px rgba(255,182,39,0.6);
+  animation: zap-ring 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Particle sparks — little pseudo-elements flung outward */
+@keyframes spark-fly {
+  0%   { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}

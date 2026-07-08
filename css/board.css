@@ -16,10 +16,10 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   height: 100vh;
   width: 100vw;
   box-sizing: border-box;
-  padding: 6px 10px;
+  padding: 4px 8px;
   display: grid;
-  grid-template-rows: auto auto auto 1fr auto auto;
-  gap: 5px;
+  grid-template-rows: auto auto auto 1fr auto 90px;
+  gap: 3px;
   overflow: hidden;
 }
 
@@ -54,7 +54,7 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 5px 10px;
+  padding: 3px 8px;
   flex-wrap: nowrap;
   min-height: 0;
 }
@@ -71,8 +71,8 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   background: #fff;
   padding: 3px;
   display: block;
-  width: 72px !important;
-  height: 72px !important;
+  width: 56px !important;
+  height: 56px !important;
 }
 .vote-strip-qr-label {
   font-family: var(--font-mono);
@@ -170,7 +170,7 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
 .roster-row {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
   padding: 3px 5px;
   border-radius: 3px;
   background: var(--bg-panel-2);
@@ -347,7 +347,7 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
 .scenario-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  gap: 3px;
   min-height: 0;
   overflow: hidden;
 }
@@ -435,3 +435,63 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
 .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-low); }
 .conn-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .conn-dot.offline { background: var(--red-core); box-shadow: 0 0 6px var(--red-core); }
+
+/* ============================================================
+   VOTE COUNTDOWN TIMER
+   ============================================================ */
+.vote-timer-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+.vote-timer-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.vote-timer-ring svg {
+  transform: rotate(-90deg);
+  width: 44px;
+  height: 44px;
+}
+.vote-timer-ring .ring-bg {
+  fill: none;
+  stroke: var(--bg-raised);
+  stroke-width: 4;
+}
+.vote-timer-ring .ring-fill {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113; /* 2π × 18 */
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s linear, stroke 0.3s ease;
+}
+.vote-timer-ring .ring-fill.urgent { stroke: var(--red-core); }
+.vote-timer-ring .ring-fill.warning { stroke: var(--amber); }
+.vote-timer-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--text-hi);
+}
+.vote-timer-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-low);
+}
+.vote-timer-phase {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-mid);
+}
