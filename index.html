@@ -23,23 +23,24 @@
       <div class="subtitle">Enterprise Defense vs Advanced Persistent Threat &mdash; Live Board</div>
     </div>
     <div class="header-status">
+      <!-- QR code — always visible so participants can scan at any time -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-right:8px;">
+        <div id="qr-code"></div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-low);letter-spacing:0.08em;">SCAN TO VOTE</div>
+      </div>
       <span class="pill" id="phase-pill"><span class="pill-dot"></span><span id="phase-text">SETUP</span></span>
       <span class="pill" id="turn-pill"><span class="pill-dot"></span><span id="turn-text">&mdash;</span></span>
       <span class="conn-indicator"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">connecting&hellip;</span></span>
     </div>
   </header>
 
-  <!-- ROW 2: Vote strip (QR + live tally) — hidden until game starts -->
+  <!-- ROW 2: Vote strip (live tally + timer) — hidden until game starts -->
   <div class="panel vote-strip" id="vote-strip" style="display:none;">
-    <div class="vote-strip-qr">
-      <div id="qr-code"></div>
-      <div class="vote-strip-qr-label">Scan to vote</div>
-    </div>
     <!-- Countdown timer ring -->
     <div class="vote-timer-wrap" id="vote-timer-wrap" style="display:none;">
       <div class="vote-timer-ring">
         <svg viewBox="0 0 44 44"><circle class="ring-bg" cx="22" cy="22" r="18"/><circle class="ring-fill" id="board-ring-fill" cx="22" cy="22" r="18"/></svg>
-        <div class="vote-timer-num" id="board-timer-num">20</div>
+        <div class="vote-timer-num" id="board-timer-num">40</div>
       </div>
       <div>
         <div class="vote-timer-phase" id="board-timer-phase">Card vote</div>
