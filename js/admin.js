@@ -30,7 +30,7 @@
   });
 
   // ---------------- ADMIN APP STATE (local + mirrored from Firebase) ----------------
-  const VOTE_DURATION_MS = 20000;  // 20-second countdown for each vote phase
+  const VOTE_DURATION_MS = 40000;  // 40-second countdown for each vote phase
 
   let state = null;             // last known shared game state
   let setupSide = "blue";       // which bank is showing during setup
@@ -97,8 +97,12 @@
       }
     });
 
+    document.getElementById("open-voting-btn").addEventListener("click", () => {
+      if (!state || state.phase !== "playing") return;
+      openVoting();
+    });
+
     document.getElementById("timer-reset-btn").addEventListener("click", () => {
-      // Admin can restart the 20-second countdown at any time
       startVoteCountdown();
     });
 
@@ -152,10 +156,8 @@
       state.turnNumber = 1;
       state.turnKey = "t1-blue";
       state.votes = {};
-      const deadline = Date.now() + VOTE_DURATION_MS;
       logEvent("system", "Setup complete. The simulation begins — Blue moves first.");
-      FireState.update({ phase: "playing", turn: "blue", turnNumber: 1, turnKey: "t1-blue", votes: {}, votePhase: "card", voteDeadline: deadline });
-      startCountdownFrom(deadline, "card");
+      FireState.update({ phase: "playing", turn: "blue", turnNumber: 1, turnKey: "t1-blue", votes: {}, votePhase: "card", voteDeadline: null });
     });
 
     document.getElementById("random-setup-btn").addEventListener("click", () => {
@@ -170,10 +172,11 @@
       const next = state.turn === "blue" ? "red" : "blue";
       const nextTurnNumber = next === "blue" ? (state.turnNumber || 1) + 1 : state.turnNumber || 1;
       const nextTurnKey = "t" + nextTurnNumber + "-" + next;
-      const deadline = Date.now() + VOTE_DURATION_MS;
       selectedCell = null; selectedCardId = null;
-      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card", voteDeadline: deadline });
-      startCountdownFrom(deadline, "card");
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card", voteDeadline: null });
+      if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+      const wrap = document.getElementById("admin-timer-wrap");
+      if (wrap) wrap.style.display = "none";
     });
   }
 
@@ -447,10 +450,12 @@
     selectedCardId = null;
     setTimeout(() => {
       if (!state || state.phase !== "playing") return;
-      const deadline = Date.now() + VOTE_DURATION_MS;
-      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card", voteDeadline: deadline });
-      logEvent("system", `Turn ended automatically — now ${next.toUpperCase()}'s turn (#${nextTurnNumber}).`);
-      startCountdownFrom(deadline, "card");
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card", voteDeadline: null });
+      logEvent("system", `Turn ended — now ${next.toUpperCase()}'s turn (#${nextTurnNumber}). Click "Open Voting" when ready.`);
+      // Clear any running countdown
+      if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+      const wrap = document.getElementById("admin-timer-wrap");
+      if (wrap) wrap.style.display = "none";
     }, 1200);
   }
 
@@ -601,6 +606,7 @@
   function renderPhaseUI() {
     document.getElementById("phase-text").textContent = (state.phase || "setup").toUpperCase();
     document.getElementById("end-turn-btn").disabled = state.phase !== "playing";
+    document.getElementById("open-voting-btn").disabled = state.phase !== "playing";
     document.getElementById("start-game-btn").style.display = state.phase === "setup" ? "inline-block" : "none";
     document.getElementById("setup-panel").style.opacity = state.phase === "setup" ? 1 : 0.4;
     document.getElementById("setup-panel").style.pointerEvents = state.phase === "setup" ? "auto" : "none";
@@ -981,12 +987,13 @@
       if (applyBtn) applyBtn.disabled = !winner && sorted.length === 0;
 
     } else {
-      // Move vote phase
+      // Move vote phase (either "move" after card quorum, or "move-only" when no clash)
       const moveTally = buildMoveTally(side);
       const moveSorted = Object.entries(moveTally).sort((a, b) => b[1] - a[1]);
       const moveWinner = moveSorted.find(([, count]) => count >= quorum);
       const totalMoveVotes = Object.values(moveTally).reduce((s, c) => s + c, 0);
-      phaseLabel.textContent = `Round 2 — Move vote: ${side.toUpperCase()} ${totalMoveVotes}/${expected} (quorum: ${quorum})`;
+      const moveLabel = votePhase === "move-only" ? "Move vote (no combat)" : "Round 2 — Move vote";
+      phaseLabel.textContent = `${moveLabel}: ${side.toUpperCase()} ${totalMoveVotes}/${expected} (quorum: ${quorum})`;
       container.appendChild(phaseLabel);
 
       if (moveSorted.length === 0) {
@@ -1010,7 +1017,43 @@
     }
   }
 
-  /** Check if quorum has been reached for whichever votePhase we're in */
+  /** Detect if any piece on the current side has at least one enemy piece adjacent */
+  function currentSideHasClashPossible() {
+    if (!state || !state.board) return false;
+    const side = state.turn;
+    const board = state.board;
+    return Object.entries(board).some(([key, unit]) => {
+      if (!unit || unit.eliminated || unit.side !== side) return false;
+      const { row, col } = parseCellKey(key);
+      return [[row-1,col],[row+1,col],[row,col-1],[row,col+1]].some(([r,c]) => {
+        if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return false;
+        const occ = board[cellKey(r, c)];
+        return occ && !occ.eliminated && occ.side !== side;
+      });
+    });
+  }
+
+  /** Admin manually opens voting for the current turn.
+   *  If a clash is possible → start card vote (round 1).
+   *  If no clash possible → skip straight to move vote (round 2). */
+  function openVoting() {
+    const deadline = Date.now() + VOTE_DURATION_MS;
+    const clashPossible = currentSideHasClashPossible();
+
+    if (clashPossible) {
+      // Full two-round voting: card first, then move
+      FireState.update({ votePhase: "card", votes: {}, voteDeadline: deadline });
+      startCountdownFrom(deadline, "card");
+      logEvent("system", `Voting opened — combat possible. Participants vote for a scenario card (${VOTE_DURATION_MS/1000}s).`);
+    } else {
+      // No clash possible — skip card round, go straight to move vote
+      FireState.update({ votePhase: "move-only", votes: {}, voteDeadline: deadline });
+      startCountdownFrom(deadline, "move");
+      logEvent("system", `Voting opened — no combat adjacent. Participants vote for a move (${VOTE_DURATION_MS/1000}s).`);
+    }
+    flashHint("Voting open — participants are voting on their phones.");
+    renderVoteTally();
+  }
   let lastAutoAppliedTurnKey = null;
   let lastAutoAppliedMoveKey = null;
 
@@ -1024,12 +1067,11 @@
       const quorum = quorumFor(side);
       const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
       const winner = Object.entries(tally).find(([, count]) => count >= quorum);
-
       if (winner && currentTurnKey !== lastAutoAppliedTurnKey) {
         lastAutoAppliedTurnKey = currentTurnKey;
         applyWinningCard(false, winner[0]);
       }
-    } else if (votePhase === "move") {
+    } else if (votePhase === "move" || votePhase === "move-only") {
       checkMoveQuorum();
     }
   }
@@ -1086,6 +1128,8 @@
   /** Phase 2 quorum: move selected — execute it on the board */
   function checkMoveQuorum() {
     if (!state || state.phase !== "playing") return;
+    // Don't auto-apply if admin already has a piece selected or move in progress
+    if (selectedCell || pendingMove) return;
     const side = state.turn;
     const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
     const moveTally = buildMoveTally(side);
@@ -1190,26 +1234,33 @@
 
   function onCountdownExpired(phase) {
     if (!state || state.phase !== "playing") return;
-    logEvent("system", `Vote timer expired — auto-applying majority ${phase} vote.`);
+
     if (phase === "card") {
+      if (selectedCardId || selectedCell || pendingMove) {
+        logEvent("system", "Vote timer expired — admin has control, continuing.");
+        return;
+      }
       const tally = buildTally(state.turn);
       const sorted = Object.entries(tally).sort((a,b) => b[1]-a[1]);
       if (sorted.length) {
+        logEvent("system", "Vote timer expired — auto-applying majority card vote.");
         applyWinningCard(true, sorted[0][0]);
       } else {
-        // No votes at all — start move phase without a card (plain move)
-        const deadline = Date.now() + VOTE_DURATION_MS;
-        FireState.update({ votePhase: "move", votes: {}, voteDeadline: deadline });
-        startCountdownFrom(deadline, "move");
-        logEvent("system", "No card votes received — move vote now open.");
+        logEvent("system", "Card vote timer expired with no votes — click Open Voting to try again, or move directly.");
       }
     } else {
+      // move or move-only
+      if (selectedCell || pendingMove) {
+        logEvent("system", "Move vote timer expired — admin has control, continuing.");
+        return;
+      }
       const moveTally = buildMoveTally(state.turn);
       const sorted = Object.entries(moveTally).sort((a,b) => b[1]-a[1]);
       if (sorted.length) {
+        logEvent("system", "Move vote timer expired — auto-applying majority move vote.");
         applyWinningMove(sorted[0][0]);
       } else {
-        logEvent("system", "No move votes received — admin please move a piece manually.");
+        logEvent("system", "Move vote timer expired with no votes — admin please move a piece manually.");
       }
     }
   }

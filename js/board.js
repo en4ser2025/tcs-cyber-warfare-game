@@ -6,7 +6,7 @@
   let spriteLoaded = false;
   let lastLogIds = new Set();
   let boardCountdownInterval = null;
-  const VOTE_DURATION_S = 20;
+  const VOTE_DURATION_S = 40;
   const BOARD_RING_CIRCUMFERENCE = 113; // 2π × 18
 
   // ---- Load the SVG sprite sheet once ----
@@ -274,6 +274,7 @@
         if (v.side === side && v.cardId) { tally[v.cardId] = (tally[v.cardId]||0)+1; totalVotes++; }
       });
     } else {
+      // "move" or "move-only"
       Object.values(allVotes).forEach(v => {
         if (v.side === side && v.fromCell && v.toCell) {
           const k = v.fromCell + "|" + v.toCell; tally[k] = (tally[k]||0)+1; totalVotes++;
@@ -285,7 +286,9 @@
 
     const tallyEl = document.getElementById("vote-strip-tally");
     tallyEl.innerHTML = "";
-    const phaseLabel = votePhase === "card" ? "Round 1 — Card vote" : "Round 2 — Move vote";
+    const phaseLabel = votePhase === "card" ? "Round 1 — Card vote" :
+                       votePhase === "move-only" ? "Move vote (no combat)" :
+                       "Round 2 — Move vote";
     const hdr = document.createElement("div");
     hdr.style.cssText = "font-family:var(--font-mono);font-size:10px;color:var(--text-low);margin-bottom:3px;";
     hdr.textContent = `${side.toUpperCase()} · ${phaseLabel} · ${totalVotes}/${expected} (need ${quorum})`;
@@ -351,7 +354,6 @@
       if (boardCountdownInterval) { clearInterval(boardCountdownInterval); boardCountdownInterval = null; }
       return;
     }
-
     wrap.style.display = "flex";
     phaseEl.textContent = (state.votePhase || "card") === "card" ? "Card vote" : "Move vote";
 
