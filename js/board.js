@@ -228,16 +228,28 @@
     text.textContent = online ? "live" : "disconnected";
   }
 
-  // ---- QR Code (generated once, pointed at vote.html on same origin) ----
+  // ---- QR Code — generated once at boot, off-screen, then moved into place ----
   let qrGenerated = false;
   function renderQR() {
     if (qrGenerated) return;
-    const el = document.getElementById("qr-code");
-    if (!el || typeof QRCode === "undefined") return;
+    if (typeof QRCode === "undefined") return;  // library not loaded yet
+
+    const container = document.getElementById("qr-code");
+    if (!container) return;
+
     // Build the vote URL from the current page location
-    const voteUrl = window.location.origin + window.location.pathname.replace("index.html", "").replace(/\/$/, "") + "/vote.html";
+    const base = window.location.href
+      .replace(/index\.html.*$/, "")
+      .replace(/\/$/, "");
+    const voteUrl = base + "/vote.html";
+
+    // Generate into a temporary off-screen div so display:none doesn't break sizing
+    const tmp = document.createElement("div");
+    tmp.style.cssText = "position:absolute;left:-9999px;top:-9999px;width:88px;height:88px;";
+    document.body.appendChild(tmp);
+
     try {
-      new QRCode(el, {
+      new QRCode(tmp, {
         text: voteUrl,
         width: 88,
         height: 88,
@@ -245,8 +257,21 @@
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M
       });
-      qrGenerated = true;
-    } catch(e) { console.warn("QR generation failed:", e); }
+
+      // Move the generated canvas/img into the real container
+      const generated = tmp.querySelector("canvas") || tmp.querySelector("img");
+      if (generated) {
+        generated.style.borderRadius = "4px";
+        generated.style.display = "block";
+        container.innerHTML = "";
+        container.appendChild(generated);
+        qrGenerated = true;
+      }
+    } catch(e) {
+      console.warn("QR generation failed:", e);
+    } finally {
+      document.body.removeChild(tmp);
+    }
   }
 
   // ---- Vote strip (QR + tally on projector) ----
@@ -416,5 +441,12 @@
   }
 
   // Wait a tick for sprite fetch to at least be in-flight before first render
-  document.addEventListener("DOMContentLoaded", boot);
+  document.addEventListener("DOMContentLoaded", () => {
+    // Generate QR immediately — before any state arrives — so it's ready
+    // when the vote strip first becomes visible. Must be done here rather than
+    // inside renderVoteStrip because QRCode renders into a 0×0 canvas when the
+    // parent element has display:none.
+    setTimeout(renderQR, 100);
+    boot();
+  });
 })();
