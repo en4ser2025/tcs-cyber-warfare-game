@@ -249,7 +249,7 @@
     if (!container) return;
 
     const voteUrl = getVoteUrl();
-    const SIZE = 132;  // generate at 132px so it's crisp on retina displays
+    const SIZE = 72;  // compact size for the header
 
     // Generate into an off-screen div so display:none on the parent
     // doesn't cause the canvas to be 0×0.
@@ -270,7 +270,7 @@
       // Move the generated canvas/img into the real container
       const generated = tmp.querySelector("canvas") || tmp.querySelector("img");
       if (generated) {
-        generated.style.cssText = "display:block;width:88px;height:88px;border-radius:4px;";
+        generated.style.cssText = "display:block;width:64px;height:64px;border-radius:4px;";
         container.innerHTML = "";
         container.appendChild(generated);
         qrGenerated = true;
@@ -287,7 +287,6 @@
     if (!strip) return;
     if (state.phase !== "playing") { strip.style.display = "none"; return; }
     strip.style.display = "flex";
-    renderQR();
 
     const side = state.turn;
     const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + side);
