@@ -219,7 +219,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   let myTeam = localStorage.getItem("cybergrid_team") || null;
   let selectedCardId = null;
   let voteCountdownInterval = null;
-  const VOTE_DURATION_S = 20;
+  const VOTE_DURATION_S = 40;
   const RING_CIRCUMFERENCE = 125.7; // 2π × 20
 
   function startVoteCountdownDisplay(deadline, phase) {
@@ -301,20 +301,21 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     const currentTurnKey = buildTurnKey(gameState);
     const votePhase = gameState.votePhase || "card";
 
-    // If game ended or not started
     if (gameState.phase !== "playing") { showScreen("card"); renderCardScreen(); return; }
-
-    // Wrong team's turn — show card screen with "not your turn" message
     if (gameState.turn !== myTeam) { showScreen("card"); renderCardScreen(); return; }
 
     if (votePhase === "card") {
-      // Already voted on card this turn?
       if (myCardVoteTurn === currentTurnKey) {
         showScreen("confirm"); renderConfirmScreen(); return;
       }
       showScreen("card"); renderCardScreen();
+    } else if (votePhase === "move-only") {
+      // No card round — go straight to move vote
+      if (myMoveVoteTurn === currentTurnKey) {
+        showScreen("confirm"); renderConfirmScreen(); return;
+      }
+      showScreen("move"); renderMoveScreen();
     } else if (votePhase === "move") {
-      // Already voted on move this turn?
       if (myMoveVoteTurn === currentTurnKey) {
         showScreen("confirm"); renderConfirmScreen(); return;
       }
@@ -411,12 +412,26 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     const stepLabel = document.getElementById("move-step-label");
     const selDisplay = document.getElementById("move-selection-display");
     const btn = document.getElementById("move-submit-btn");
+    const votePhase = gameState.votePhase || "move";
 
     const activeCard = gameState.activeScenario ? SCENARIO_CARDS.find(c=>c.id===gameState.activeScenario.cardId) : null;
     const bannerEl = document.getElementById("move-phase-banner");
-    bannerEl.textContent = activeCard
-      ? `Round 2 — Moving with "${activeCard.name}"`
-      : "Round 2 — Select a piece, then a destination";
+
+    if (votePhase === "move-only") {
+      bannerEl.textContent = "No combat this turn — vote for a move only";
+      bannerEl.className = "phase-banner";
+      bannerEl.style.borderColor = "var(--amber)";
+      bannerEl.style.color = "var(--amber)";
+      bannerEl.style.background = "rgba(255,182,39,0.08)";
+    } else {
+      bannerEl.textContent = activeCard
+        ? `Round 2 — Moving with "${activeCard.name}"`
+        : "Round 2 — Select a piece, then a destination";
+      bannerEl.className = "phase-banner move-open";
+      bannerEl.style.borderColor = "";
+      bannerEl.style.color = "";
+      bannerEl.style.background = "";
+    }
 
     if (selectedFromCell && selectedToCell) {
       stepLabel.className = "move-step-label step-2";
@@ -713,10 +728,12 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       if (wrap) wrap.style.display = "none";
     }
 
-    // VotePhase flipped from card→move: if we already voted on card, auto-go to move screen
-    if (prevVotePhase === "card" && (s.votePhase||"card") === "move" && myTeam && s.turn === myTeam) {
-      if (myCardVoteTurn === currentTurnKey) {
-        // Already cast card vote — now show move voting
+    // VotePhase flipped to move or move-only: auto-go to move screen
+    const newPhase = s.votePhase || "card";
+    if ((newPhase === "move" || newPhase === "move-only") &&
+        (prevVotePhase === "card" || !prevVotePhase) &&
+        myTeam && s.turn === myTeam) {
+      if (myCardVoteTurn === currentTurnKey || newPhase === "move-only") {
         showScreen("move"); renderMoveScreen(); return;
       }
     }
