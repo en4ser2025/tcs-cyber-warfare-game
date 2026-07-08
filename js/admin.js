@@ -30,6 +30,8 @@
   });
 
   // ---------------- ADMIN APP STATE (local + mirrored from Firebase) ----------------
+  const VOTE_DURATION_MS = 20000;  // 20-second countdown for each vote phase
+
   let state = null;             // last known shared game state
   let setupSide = "blue";       // which bank is showing during setup
   let setupSelectedPieceId = null;
@@ -38,6 +40,7 @@
   let selectedCell = null;      // currently selected piece's cell during play
   let pendingMove = null;       // { fromCell, toCell, type: 'move'|'clash' }
   let bootStarted = false;
+  let countdownInterval = null; // setInterval handle for local countdown tick
 
   fetch("assets/icons/sprite.svg")
     .then(r => r.text())
@@ -94,6 +97,11 @@
       }
     });
 
+    document.getElementById("timer-reset-btn").addEventListener("click", () => {
+      // Admin can restart the 20-second countdown at any time
+      startVoteCountdown();
+    });
+
     document.getElementById("vote-reset-btn").addEventListener("click", () => {
       if (!state) return;
       const currentTurnKey = state.turnKey || ("t" + (state.turnNumber||1) + "-" + (state.turn||"blue"));
@@ -144,8 +152,10 @@
       state.turnNumber = 1;
       state.turnKey = "t1-blue";
       state.votes = {};
+      const deadline = Date.now() + VOTE_DURATION_MS;
       logEvent("system", "Setup complete. The simulation begins — Blue moves first.");
-      FireState.update({ phase: "playing", turn: "blue", turnNumber: 1, turnKey: "t1-blue", votes: {} });
+      FireState.update({ phase: "playing", turn: "blue", turnNumber: 1, turnKey: "t1-blue", votes: {}, votePhase: "card", voteDeadline: deadline });
+      startCountdownFrom(deadline, "card");
     });
 
     document.getElementById("random-setup-btn").addEventListener("click", () => {
@@ -160,8 +170,10 @@
       const next = state.turn === "blue" ? "red" : "blue";
       const nextTurnNumber = next === "blue" ? (state.turnNumber || 1) + 1 : state.turnNumber || 1;
       const nextTurnKey = "t" + nextTurnNumber + "-" + next;
+      const deadline = Date.now() + VOTE_DURATION_MS;
       selectedCell = null; selectedCardId = null;
-      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card" });
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card", voteDeadline: deadline });
+      startCountdownFrom(deadline, "card");
     });
   }
 
@@ -435,8 +447,10 @@
     selectedCardId = null;
     setTimeout(() => {
       if (!state || state.phase !== "playing") return;
-      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card" });
+      const deadline = Date.now() + VOTE_DURATION_MS;
+      FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "card", voteDeadline: deadline });
       logEvent("system", `Turn ended automatically — now ${next.toUpperCase()}'s turn (#${nextTurnNumber}).`);
+      startCountdownFrom(deadline, "card");
     }, 1200);
   }
 
@@ -801,11 +815,17 @@
       }
       toUnit.eliminated = true;
       bumpLocal(toUnit.side, toUnit.pieceId);
+      // Animate the defender being eliminated at toKey before overwriting
+      const { row: elimRow, col: elimCol } = parseCellKey(toKey);
+      triggerEliminationAnimation(elimRow, elimCol);
       boardCopy[toKey] = fromUnit;     // attacker occupies the cell
       delete boardCopy[fromKey];
     } else {
       fromUnit.eliminated = true;
       bumpLocal(fromUnit.side, fromUnit.pieceId);
+      // Animate the attacker being eliminated at fromKey
+      const { row: elimRow, col: elimCol } = parseCellKey(fromKey);
+      triggerEliminationAnimation(elimRow, elimCol);
       delete boardCopy[fromKey];        // attacker is eliminated, defender holds
       boardCopy[toKey] = toUnit;
     }
@@ -1049,9 +1069,11 @@
       renderCardList();
       renderTurnInstruction();
       // Flip to move-voting phase — clears card votes, opens move round on phones
-      FireState.update({ votePhase: "move", votes: {} });
+      const moveDeadline = Date.now() + VOTE_DURATION_MS;
+      FireState.update({ votePhase: "move", votes: {}, voteDeadline: moveDeadline });
       logEvent(side, `Move vote now open — participants choose piece and destination on their phones.`);
       flashHint(`"${card.name}" armed — move vote open on phones. Or click a piece on the board directly.`);
+      startCountdownFrom(moveDeadline, "move");
       renderVoteTally();
     }
   }
@@ -1117,4 +1139,93 @@
       logEvent("system", `Voted move ${fromCell}→${toCell} invalid (friendly piece there). Admin to resolve.`);
     }
   }
+  // ---------------- COUNTDOWN TIMER ----------------
+
+  function startVoteCountdown() {
+    // Restart the countdown from now + 20s and write to Firebase
+    const deadline = Date.now() + VOTE_DURATION_MS;
+    const votePhase = state && state.votePhase || "card";
+    FireState.update({ voteDeadline: deadline });
+    startCountdownFrom(deadline, votePhase);
+  }
+
+  function startCountdownFrom(deadline, phase) {
+    // Clear any existing interval
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+
+    const wrap = document.getElementById("admin-timer-wrap");
+    const numEl = document.getElementById("admin-timer-num");
+    const fillEl = document.getElementById("admin-ring-fill");
+    const phaseEl = document.getElementById("admin-timer-phase");
+    if (!wrap || !numEl) return;
+
+    wrap.style.display = "flex";
+    phaseEl.textContent = phase === "card" ? "Card vote" : "Move vote";
+
+    const TOTAL = VOTE_DURATION_MS / 1000;
+    const CIRCUMFERENCE = 97; // 2π × 15.5 (admin ring radius)
+
+    function tick() {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      numEl.textContent = remaining;
+
+      const pct = remaining / TOTAL;
+      fillEl.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
+
+      // Colour coding
+      if (remaining <= 5) { fillEl.className = "ring-fill urgent"; }
+      else if (remaining <= 10) { fillEl.className = "ring-fill warning"; }
+      else { fillEl.className = "ring-fill"; }
+
+      if (remaining <= 0) {
+        clearInterval(countdownInterval); countdownInterval = null;
+        wrap.style.display = "none";
+        onCountdownExpired(phase);
+      }
+    }
+
+    tick();
+    countdownInterval = setInterval(tick, 500);
+  }
+
+  function onCountdownExpired(phase) {
+    if (!state || state.phase !== "playing") return;
+    logEvent("system", `Vote timer expired — auto-applying majority ${phase} vote.`);
+    if (phase === "card") {
+      const tally = buildTally(state.turn);
+      const sorted = Object.entries(tally).sort((a,b) => b[1]-a[1]);
+      if (sorted.length) {
+        applyWinningCard(true, sorted[0][0]);
+      } else {
+        // No votes at all — start move phase without a card (plain move)
+        const deadline = Date.now() + VOTE_DURATION_MS;
+        FireState.update({ votePhase: "move", votes: {}, voteDeadline: deadline });
+        startCountdownFrom(deadline, "move");
+        logEvent("system", "No card votes received — move vote now open.");
+      }
+    } else {
+      const moveTally = buildMoveTally(state.turn);
+      const sorted = Object.entries(moveTally).sort((a,b) => b[1]-a[1]);
+      if (sorted.length) {
+        applyWinningMove(sorted[0][0]);
+      } else {
+        logEvent("system", "No move votes received — admin please move a piece manually.");
+      }
+    }
+  }
+
+  // ---------------- ELIMINATION ANIMATION ----------------
+
+  /** Trigger the zap-out animation on a board cell, then re-render after it finishes */
+  function triggerEliminationAnimation(row, col) {
+    const cellId = `admin-cell-${row}-${col}`;
+    const cellEl = document.getElementById(cellId);
+    if (!cellEl) return;
+    cellEl.classList.add("zap-out");
+    setTimeout(() => {
+      cellEl.classList.remove("zap-out");
+      renderAdminBoard();
+    }, 700);
+  }
+
 })();

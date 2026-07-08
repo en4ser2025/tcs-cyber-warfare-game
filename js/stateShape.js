@@ -17,6 +17,7 @@ function buildEmptyState() {
     activeScenario: null,
     votes: {},
     votePhase: "card",        // 'card' then 'move' each turn
+    voteDeadline: null,       // Unix timestamp ms when current vote phase expires
     votingConfig: {
       blueExpected: 5,
       redExpected: 5,

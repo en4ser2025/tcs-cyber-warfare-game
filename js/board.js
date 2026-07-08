@@ -5,6 +5,9 @@
 (function () {
   let spriteLoaded = false;
   let lastLogIds = new Set();
+  let boardCountdownInterval = null;
+  const VOTE_DURATION_S = 20;
+  const BOARD_RING_CIRCUMFERENCE = 113; // 2π × 18
 
   // ---- Load the SVG sprite sheet once ----
   fetch("assets/icons/sprite.svg")
@@ -330,11 +333,70 @@
     renderActiveScenario(state);
     renderScenarioCards(state);
     renderVoteStrip(state);
+    updateBoardCountdown(state);
     renderLog(state);
     renderWin(state);
   }
 
+  // ---- Board-side countdown timer ----
+  function updateBoardCountdown(state) {
+    const wrap = document.getElementById("vote-timer-wrap");
+    const numEl = document.getElementById("board-timer-num");
+    const fillEl = document.getElementById("board-ring-fill");
+    const phaseEl = document.getElementById("board-timer-phase");
+    if (!wrap || !numEl) return;
+
+    if (state.phase !== "playing" || !state.voteDeadline) {
+      wrap.style.display = "none";
+      if (boardCountdownInterval) { clearInterval(boardCountdownInterval); boardCountdownInterval = null; }
+      return;
+    }
+
+    wrap.style.display = "flex";
+    phaseEl.textContent = (state.votePhase || "card") === "card" ? "Card vote" : "Move vote";
+
+    if (boardCountdownInterval) { clearInterval(boardCountdownInterval); boardCountdownInterval = null; }
+
+    const deadline = state.voteDeadline;
+    function tick() {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      numEl.textContent = remaining;
+      const pct = remaining / VOTE_DURATION_S;
+      fillEl.style.strokeDashoffset = BOARD_RING_CIRCUMFERENCE * (1 - pct);
+      if (remaining <= 5) fillEl.className = "ring-fill urgent";
+      else if (remaining <= 10) fillEl.className = "ring-fill warning";
+      else fillEl.className = "ring-fill";
+      if (remaining <= 0) { clearInterval(boardCountdownInterval); boardCountdownInterval = null; }
+    }
+    tick();
+    boardCountdownInterval = setInterval(tick, 500);
+  }
+
+  // ---- Elimination animation on the public board ----
+  function triggerBoardElimination(row, col) {
+    const cellEl = document.getElementById(`cell-${row}-${col}`);
+    if (!cellEl) return;
+    cellEl.classList.add("zap-out");
+    setTimeout(() => cellEl.classList.remove("zap-out"), 700);
+  }
+
   // ---- Boot ----
+  let prevBoard = {};
+
+  function detectAndAnimateEliminations(newBoard) {
+    // Compare with previous board: find cells that had a living piece and now don't
+    Object.entries(prevBoard).forEach(([key, prevUnit]) => {
+      if (!prevUnit || prevUnit.eliminated) return;
+      const newUnit = newBoard[key];
+      // Cell is now empty or has a different unit → previous unit was eliminated
+      if (!newUnit || newUnit.eliminated || newUnit.instanceId !== prevUnit.instanceId) {
+        const { row, col } = parseCellKey(key);
+        triggerBoardElimination(row, col);
+      }
+    });
+    prevBoard = newBoard ? JSON.parse(JSON.stringify(newBoard)) : {};
+  }
+
   function boot() {
     setConnStatus(false);
     FireState.subscribe((state, err) => {
@@ -346,6 +408,7 @@
       }
       setConnStatus(true);
       if (!state) return; // empty room, waiting for admin to initialize
+      if (state.board) detectAndAnimateEliminations(state.board);
       renderAll(state);
     });
   }
