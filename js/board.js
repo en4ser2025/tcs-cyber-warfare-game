@@ -229,57 +229,47 @@
   }
 
   // ---- QR Code ----
-  // Uses qrcodejs (loaded in index.html) with off-screen generation so
-  // the canvas isn't created inside a display:none parent (which gives 0x0 size).
+  // Uses qrcodejs from CDN. The QR div is in the header so it is always
+  // visible. We generate off-screen to avoid any sizing issues.
   let qrGenerated = false;
-
-  function getVoteUrl() {
-    const href = window.location.href;
-    const base = href
-      .replace(/\/index\.html(\?.*)?$/, "")
-      .replace(/\/index\.TEST\.html(\?.*)?$/, "")
-      .replace(/\/$/, "");
-    return base + "/vote.html";
-  }
 
   function renderQR() {
     if (qrGenerated) return;
-    if (typeof QRCode === "undefined") return;   // library not ready yet
+    if (typeof QRCode === "undefined") {
+      setTimeout(renderQR, 300);   // library not loaded yet — retry
+      return;
+    }
     const container = document.getElementById("qr-code");
     if (!container) return;
 
-    const voteUrl = getVoteUrl();
-    const SIZE = 72;  // compact size for the header
+    const href = window.location.href;
+    const voteUrl = href
+      .replace(/\/index\.html(\?.*)?$/, "")
+      .replace(/\/index\.TEST\.html(\?.*)?$/, "")
+      .replace(/\/$/, "") + "/vote.html";
 
-    // Generate into an off-screen div so display:none on the parent
-    // doesn't cause the canvas to be 0×0.
+    // Render into a hidden-but-sized div so the canvas gets real dimensions
     const tmp = document.createElement("div");
-    tmp.style.cssText = "position:fixed;left:-9999px;top:0;width:" + SIZE + "px;height:" + SIZE + "px;";
+    tmp.style.cssText = "position:fixed;left:-9999px;top:0;width:80px;height:80px;visibility:hidden;";
     document.body.appendChild(tmp);
 
-    try {
-      new QRCode(tmp, {
-        text: voteUrl,
-        width: SIZE,
-        height: SIZE,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-      });
+    new QRCode(tmp, {
+      text: voteUrl,
+      width: 80, height: 80,
+      colorDark: "#000000", colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
 
-      // Move the generated canvas/img into the real container
-      const generated = tmp.querySelector("canvas") || tmp.querySelector("img");
-      if (generated) {
-        generated.style.cssText = "display:block;width:64px;height:64px;border-radius:4px;";
-        container.innerHTML = "";
-        container.appendChild(generated);
-        qrGenerated = true;
-      }
-    } catch(e) {
-      console.warn("QR generation failed:", e);
+    const generated = tmp.querySelector("canvas") || tmp.querySelector("img");
+    if (generated) {
+      generated.style.cssText = "display:block;width:64px;height:64px;border-radius:4px;";
+      container.innerHTML = "";
+      container.appendChild(generated);
+      qrGenerated = true;
     }
     document.body.removeChild(tmp);
   }
+
 
   // ---- Vote strip (QR + tally on projector) ----
   function renderVoteStrip(state) {
@@ -447,10 +437,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    // Try immediately; if qrcodejs library isn't ready yet, retry after it loads
-    renderQR();
-    if (!qrGenerated) setTimeout(renderQR, 500);
-    if (!qrGenerated) setTimeout(renderQR, 2000);
+    renderQR();   // will retry if CDN library not loaded yet
     boot();
   });
 })();
