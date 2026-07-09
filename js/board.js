@@ -257,17 +257,27 @@
         colorDark: "#000000", colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M
       });
-      const generated = tmp.querySelector("canvas") || tmp.querySelector("img");
-      if (generated) {
-        generated.style.cssText = "display:block;width:64px;height:64px;border-radius:4px;";
-        container.innerHTML = "";
-        container.appendChild(generated);
-        qrGenerated = true;
-      }
+      // qrcodejs sets canvas display:none then switches to display:block asynchronously
+      // Wait a tick then grab whichever element it has made visible
+      setTimeout(() => {
+        const canvas = tmp.querySelector("canvas");
+        const img    = tmp.querySelector("img");
+        const generated = (canvas && canvas.style.display !== "none") ? canvas : (img || canvas);
+        if (generated) {
+          generated.style.display = "block";
+          generated.style.width   = "64px";
+          generated.style.height  = "64px";
+          generated.style.borderRadius = "4px";
+          container.innerHTML = "";
+          container.appendChild(generated);
+          qrGenerated = true;
+        }
+        if (document.body.contains(tmp)) document.body.removeChild(tmp);
+      }, 100);
     } catch(e) {
       console.warn("QR generation failed:", e);
+      if (document.body.contains(tmp)) document.body.removeChild(tmp);
     }
-    document.body.removeChild(tmp);
   }
 
 
