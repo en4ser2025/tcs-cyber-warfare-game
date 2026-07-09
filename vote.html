@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Cyber Grid — Vote</title>
+<title>Critical Infrastructure Sim — Vote</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -16,6 +16,12 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{background:var(--bg);color:var(--text-hi);font-family:var(--font-head);min-height:100vh;-webkit-font-smoothing:antialiased;}
+body{
+  background-image:
+    repeating-linear-gradient(90deg,rgba(255,255,255,0.015) 0px,rgba(255,255,255,0.045) 1px,rgba(0,0,0,0.03) 2px,rgba(255,255,255,0.02) 3px,rgba(0,0,0,0.02) 4px),
+    linear-gradient(115deg,#23282e 0%,#3a4149 12%,#575f68 24%,#313840 36%,#454d56 48%,#2a3038 60%,#4d555e 74%,#343b43 86%,#272c33 100%);
+  background-attachment: fixed;
+}
 body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;margin:0 auto;}
 
 .hdr{text-align:center;padding:8px 0 2px;}
@@ -126,7 +132,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 <div id="sprite-mount" style="display:none;"></div>
 
 <div class="hdr">
-  <h1>CYBER GRID</h1>
+  <h1>CRITICAL INFRASTRUCTURE SIM</h1>
   <div class="sub">SCENARIO VOTING</div>
 </div>
 
@@ -177,7 +183,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 
 <!-- SCREEN 3: Round 2 — Move vote (mini board) -->
 <div class="screen" id="screen-move">
-  <div id="move-phase-banner" class="phase-banner move-open">Round 2 — Select a piece, then a destination</div>
+  <div id="move-phase-banner" class="phase-banner move-open">Round 1 — Select a piece to move, then a destination</div>
   <div id="move-step-label" class="move-step-label">Tap one of your pieces to select it</div>
   <div id="move-selection-display" class="move-selection-display"></div>
   <div class="mini-board-wrap">
@@ -288,7 +294,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     localStorage.setItem("cybergrid_team", side);
     // Start countdown immediately if a deadline is already active for this side's turn
     if (gameState && gameState.phase === "playing" && gameState.turn === side && gameState.voteDeadline) {
-      startVoteCountdownDisplay(gameState.voteDeadline, gameState.votePhase || "card");
+      startVoteCountdownDisplay(gameState.voteDeadline, gameState.votePhase || "move");
     }
     routeToCorrectScreen();
   }
@@ -296,30 +302,26 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   // ---- Routing ----
   function routeToCorrectScreen() {
     if (!myTeam) { showScreen("team"); return; }
-    if (!gameState) { showScreen("card"); renderCardScreen(); return; }
+    if (!gameState) { showScreen("move"); renderMoveScreen(); return; }
 
     const currentTurnKey = buildTurnKey(gameState);
-    const votePhase = gameState.votePhase || "card";
+    const votePhase = gameState.votePhase || "move";
 
-    if (gameState.phase !== "playing") { showScreen("card"); renderCardScreen(); return; }
-    if (gameState.turn !== myTeam) { showScreen("card"); renderCardScreen(); return; }
+    if (gameState.phase !== "playing") { showScreen("move"); renderMoveScreen(); return; }
+    if (gameState.turn !== myTeam) { showScreen("move"); renderMoveScreen(); return; }
 
-    if (votePhase === "card") {
+    if (votePhase === "move") {
+      // Round 1 — always move first
+      if (myMoveVoteTurn === currentTurnKey) {
+        showScreen("confirm"); renderConfirmScreen(); return;
+      }
+      showScreen("move"); renderMoveScreen();
+    } else if (votePhase === "card") {
+      // Round 2 — card vote after a clash was detected
       if (myCardVoteTurn === currentTurnKey) {
         showScreen("confirm"); renderConfirmScreen(); return;
       }
       showScreen("card"); renderCardScreen();
-    } else if (votePhase === "move-only") {
-      // No card round — go straight to move vote
-      if (myMoveVoteTurn === currentTurnKey) {
-        showScreen("confirm"); renderConfirmScreen(); return;
-      }
-      showScreen("move"); renderMoveScreen();
-    } else if (votePhase === "move") {
-      if (myMoveVoteTurn === currentTurnKey) {
-        showScreen("confirm"); renderConfirmScreen(); return;
-      }
-      showScreen("move"); renderMoveScreen();
     }
   }
 
@@ -352,7 +354,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     }
 
     banner.style.display = "none";
-    label.textContent = "Round 1 — Vote for a Scenario Card";
+    label.textContent = "Round 2 — Vote for a Scenario Card (Clash Detected)";
 
     const cards = SCENARIO_CARDS.filter(c => c.side === myTeam);
     grid.innerHTML = "";
@@ -426,7 +428,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     } else {
       bannerEl.textContent = activeCard
         ? `Round 2 — Moving with "${activeCard.name}"`
-        : "Round 2 — Select a piece, then a destination";
+        : "Round 1 — Select a piece to move, then a destination";
       bannerEl.className = "phase-banner move-open";
       bannerEl.style.borderColor = "";
       bannerEl.style.color = "";
@@ -705,7 +707,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     if (!s) { gameState = null; if (myTeam) routeToCorrectScreen(); return; }
 
     const prevTurnKey = gameState ? buildTurnKey(gameState) : null;
-    const prevVotePhase = gameState ? (gameState.votePhase||"card") : "card";
+    const prevVotePhase = gameState ? (gameState.votePhase||"move") : "move";
     const prevDeadline = gameState ? gameState.voteDeadline : null;
     gameState = s;
     const currentTurnKey = buildTurnKey(s);
@@ -716,26 +718,24 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       myCardVoteTurn = null; myMoveVoteTurn = null;
       localStorage.removeItem("cybergrid_cardTurn");
       localStorage.removeItem("cybergrid_moveTurn");
+      localStorage.removeItem("cybergrid_voteCard");
     }
 
     // Start/update countdown when voteDeadline changes or votePhase changes
     if (s.voteDeadline && s.phase === "playing" && s.turn === myTeam &&
-        (s.voteDeadline !== prevDeadline || (s.votePhase||"card") !== prevVotePhase)) {
-      startVoteCountdownDisplay(s.voteDeadline, s.votePhase || "card");
+        (s.voteDeadline !== prevDeadline || (s.votePhase||"move") !== prevVotePhase)) {
+      startVoteCountdownDisplay(s.voteDeadline, s.votePhase || "move");
     } else if (s.phase !== "playing" || !s.voteDeadline) {
       if (voteCountdownInterval) { clearInterval(voteCountdownInterval); voteCountdownInterval = null; }
       const wrap = document.getElementById("vote-countdown-wrap");
       if (wrap) wrap.style.display = "none";
     }
 
-    // VotePhase flipped to move or move-only: auto-go to move screen
-    const newPhase = s.votePhase || "card";
-    if ((newPhase === "move" || newPhase === "move-only") &&
-        (prevVotePhase === "card" || !prevVotePhase) &&
-        myTeam && s.turn === myTeam) {
-      if (myCardVoteTurn === currentTurnKey || newPhase === "move-only") {
-        showScreen("move"); renderMoveScreen(); return;
-      }
+    // VotePhase flipped move→card: clash detected, open card voting
+    const newPhase = s.votePhase || "move";
+    if (newPhase === "card" && prevVotePhase === "move" && myTeam && s.turn === myTeam) {
+      selectedCardId = null;
+      showScreen("card"); renderCardScreen(); return;
     }
 
     if (!myTeam) return;
