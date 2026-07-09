@@ -11,8 +11,8 @@
 
 <div id="sprite-mount"></div>
 
-<!-- QR code library — onload triggers renderQR the moment it's ready -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" onload="if(typeof renderQR==='function')renderQR();"></script>
+<!-- QR code library — local copy, no network request needed -->
+<script src="js/qrcode.min.js" onload="if(typeof renderQR==='function')renderQR();"></script>
 
 <div class="app-shell">
 
