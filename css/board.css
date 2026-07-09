@@ -33,9 +33,9 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
 }
 .header h1 {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 900;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   margin: 0;
   color: var(--text-hi);
   text-shadow: 0 0 18px rgba(125,165,220,0.25);

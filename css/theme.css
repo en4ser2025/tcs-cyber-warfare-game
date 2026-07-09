@@ -56,10 +56,33 @@ html, body {
 }
 
 body {
+  /* Polished steel background — brushed metal texture built from layered gradients */
   background-image:
-    radial-gradient(ellipse 1200px 800px at 20% -10%, rgba(61,169,252,0.08), transparent 60%),
-    radial-gradient(ellipse 1200px 800px at 85% 110%, rgba(255,59,92,0.08), transparent 60%),
-    linear-gradient(var(--bg-void), var(--bg-void));
+    /* subtle team-colour ambient glows kept on top of the steel */
+    radial-gradient(ellipse 1200px 800px at 20% -10%, rgba(61,169,252,0.06), transparent 60%),
+    radial-gradient(ellipse 1200px 800px at 85% 110%, rgba(255,59,92,0.06), transparent 60%),
+    /* fine horizontal brushing lines */
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,255,255,0.015) 0px,
+      rgba(255,255,255,0.045) 1px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(255,255,255,0.02) 3px,
+      rgba(0,0,0,0.02) 4px
+    ),
+    /* broad polished sheen bands sweeping diagonally */
+    linear-gradient(
+      115deg,
+      #23282e 0%,
+      #3a4149 12%,
+      #575f68 24%,
+      #313840 36%,
+      #454d56 48%,
+      #2a3038 60%,
+      #4d555e 74%,
+      #343b43 86%,
+      #272c33 100%
+    );
   background-attachment: fixed;
 }
 
@@ -126,6 +149,8 @@ a { color: var(--blue-core); }
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-lg);
   position: relative;
+  /* Float above the polished steel background */
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.6);
 }
 .panel::before {
   content: "";
