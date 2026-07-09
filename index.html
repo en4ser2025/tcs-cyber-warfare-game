@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyber Grid :: Live Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/board.css">
+</head>
+<body>
+
+<div id="sprite-mount"></div>
+
+<!-- QR code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<div class="app-shell">
+
+  <!-- ROW 1: Header -->
+  <header class="header">
+    <div>
+      <h1 class="font-display">CYBER GRID</h1>
+      <div class="subtitle">Enterprise Defense vs Advanced Persistent Threat &mdash; Live Board</div>
+    </div>
+    <div class="header-status">
+      <!-- QR code — always visible so participants can scan at any time -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-right:8px;">
+        <div id="qr-code"></div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-low);letter-spacing:0.08em;">SCAN TO VOTE</div>
+      </div>
+      <span class="pill" id="phase-pill"><span class="pill-dot"></span><span id="phase-text">SETUP</span></span>
+      <span class="pill" id="turn-pill"><span class="pill-dot"></span><span id="turn-text">&mdash;</span></span>
+      <span class="conn-indicator"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">connecting&hellip;</span></span>
+    </div>
+  </header>
+
+  <!-- ROW 2: Vote strip (live tally + timer) — hidden until game starts -->
+  <div class="panel vote-strip" id="vote-strip" style="display:none;">
+    <!-- Countdown timer ring -->
+    <div class="vote-timer-wrap" id="vote-timer-wrap" style="display:none;">
+      <div class="vote-timer-ring">
+        <svg viewBox="0 0 44 44"><circle class="ring-bg" cx="22" cy="22" r="18"/><circle class="ring-fill" id="board-ring-fill" cx="22" cy="22" r="18"/></svg>
+        <div class="vote-timer-num" id="board-timer-num">40</div>
+      </div>
+      <div>
+        <div class="vote-timer-phase" id="board-timer-phase">Card vote</div>
+        <div class="vote-timer-label" id="board-timer-label">seconds remaining</div>
+      </div>
+    </div>
+    <div class="vote-strip-tally" id="vote-strip-tally"></div>
+    <div class="vote-strip-quorum" id="vote-strip-quorum" style="display:none;"></div>
+  </div>
+
+  <!-- ROW 3: Now-playing banner — hidden when no active card -->
+  <div class="panel now-playing" id="now-playing-banner" style="display:none;">
+    <span class="pill" id="now-playing-side"></span>
+    <div>
+      <div class="card-name" id="now-playing-name">&mdash;</div>
+      <div class="card-desc" id="now-playing-desc"></div>
+    </div>
+  </div>
+
+  <!-- ROW 4: Main grid — rosters + board -->
+  <div class="main-grid">
+
+    <!-- LEFT: Blue roster + detection meter -->
+    <div class="panel roster-panel">
+      <div class="panel-title" style="font-size:10px;padding:5px 8px;">Defenders &mdash; Blue</div>
+      <div class="panel detection-meter" style="border:none;border-bottom:1px solid var(--line-faint);border-radius:0;background:transparent;">
+        <div class="eyebrow" style="font-size:8px;">SOC Detection</div>
+        <div class="detection-bar-track"><div class="detection-bar-fill" id="detection-fill" style="width:0%"></div></div>
+        <div class="detection-label"><span id="detection-pct">0%</span><span>100% = caught</span></div>
+      </div>
+      <div class="roster-list" id="blue-roster"></div>
+    </div>
+
+    <!-- CENTRE: Board -->
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+
+    <!-- RIGHT: Red roster -->
+    <div class="panel roster-panel">
+      <div class="panel-title" style="font-size:10px;padding:5px 8px;">Threat Actors &mdash; Red</div>
+      <div class="roster-list" id="red-roster"></div>
+    </div>
+
+  </div>
+
+  <!-- ROW 5: Operations log (compact strip) -->
+  <div class="panel log-panel">
+    <div class="log-feed" id="log-feed"></div>
+  </div>
+
+  <!-- ROW 6: Scenario cards (compact 2-column per side) -->
+  <div class="scenario-grid">
+    <div class="panel scenario-side">
+      <div class="panel-title scenario-title-blue" style="font-size:9px;padding:4px 8px;">&#x1F6E1; Blue Scenario Cards</div>
+      <div class="scenario-card-list" id="public-blue-cards"></div>
+    </div>
+    <div class="panel scenario-side">
+      <div class="panel-title scenario-title-red" style="font-size:9px;padding:4px 8px;">&#x2620; Red Scenario Cards</div>
+      <div class="scenario-card-list" id="public-red-cards"></div>
+    </div>
+  </div>
+
+</div><!-- end app-shell -->
+
+<!-- Win overlay -->
+<div class="win-overlay" id="win-overlay" style="display:none;">
+  <div class="panel win-card" id="win-card">
+    <div class="eyebrow" id="win-eyebrow">GAME OVER</div>
+    <h2 id="win-title">&mdash;</h2>
+    <p id="win-reason"></p>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="data/gameData.js"></script>
+<script src="js/stateShape.js"></script>
+<script src="js/firebaseConfig.js"></script>
+<script src="js/gameEngine.js"></script>
+<script src="js/board.js"></script>
+</body>
+</html>
