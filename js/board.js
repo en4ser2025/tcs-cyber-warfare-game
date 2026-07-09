@@ -229,16 +229,13 @@
   }
 
   // ---- QR Code ----
-  // Uses qrcodejs from CDN. The QR div is in the header so it is always
-  // visible. We generate off-screen to avoid any sizing issues.
+  // Uses qrcodejs from CDN. QR div is in the header — always visible.
   let qrGenerated = false;
 
   function renderQR() {
     if (qrGenerated) return;
-    if (typeof QRCode === "undefined") {
-      setTimeout(renderQR, 300);   // library not loaded yet — retry
-      return;
-    }
+    if (typeof QRCode === "undefined") return;  // called again from script onload
+
     const container = document.getElementById("qr-code");
     if (!container) return;
 
@@ -248,24 +245,27 @@
       .replace(/\/index\.TEST\.html(\?.*)?$/, "")
       .replace(/\/$/, "") + "/vote.html";
 
-    // Render into a hidden-but-sized div so the canvas gets real dimensions
+    // Render into an off-screen but sized element so canvas gets real dimensions
     const tmp = document.createElement("div");
     tmp.style.cssText = "position:fixed;left:-9999px;top:0;width:80px;height:80px;visibility:hidden;";
     document.body.appendChild(tmp);
 
-    new QRCode(tmp, {
-      text: voteUrl,
-      width: 80, height: 80,
-      colorDark: "#000000", colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M
-    });
-
-    const generated = tmp.querySelector("canvas") || tmp.querySelector("img");
-    if (generated) {
-      generated.style.cssText = "display:block;width:64px;height:64px;border-radius:4px;";
-      container.innerHTML = "";
-      container.appendChild(generated);
-      qrGenerated = true;
+    try {
+      new QRCode(tmp, {
+        text: voteUrl,
+        width: 80, height: 80,
+        colorDark: "#000000", colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      const generated = tmp.querySelector("canvas") || tmp.querySelector("img");
+      if (generated) {
+        generated.style.cssText = "display:block;width:64px;height:64px;border-radius:4px;";
+        container.innerHTML = "";
+        container.appendChild(generated);
+        qrGenerated = true;
+      }
+    } catch(e) {
+      console.warn("QR generation failed:", e);
     }
     document.body.removeChild(tmp);
   }
