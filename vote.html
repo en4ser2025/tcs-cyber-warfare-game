@@ -223,6 +223,8 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   // ---- State ----
   let gameState = null;
   let myTeam = null;   // resolved after we see the current gameId (see subscribe)
+  let teamLockedGameId = null;  // the gameId the current team choice belongs to
+  let lastKnownGameId = null;   // last non-empty gameId we've seen
   let selectedCardId = null;
   let voteCountdownInterval = null;
   const VOTE_DURATION_S = 40;
@@ -290,11 +292,20 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   document.getElementById("pick-red").addEventListener("click",  () => chooseTeam("red"));
 
   function chooseTeam(side) {
+    // Once a team is locked for this game, don't allow changing it
+    const storedTeam = localStorage.getItem("cybergrid_team");
+    const storedGame = localStorage.getItem("cybergrid_teamGame");
+    const currentGame = gameState && gameState.gameId ? gameState.gameId : "";
+    if (storedTeam && storedGame && storedGame === currentGame) {
+      myTeam = storedTeam;         // already locked — keep existing team
+      teamLockedGameId = storedGame;
+      routeToCorrectScreen();
+      return;
+    }
     myTeam = side;
-    // Store team tied to the current gameId — resets automatically on a new game
-    const gid = gameState && gameState.gameId ? gameState.gameId : "";
     localStorage.setItem("cybergrid_team", side);
-    localStorage.setItem("cybergrid_teamGame", gid);
+    localStorage.setItem("cybergrid_teamGame", currentGame);
+    teamLockedGameId = currentGame || lastKnownGameId;
     // Start countdown immediately if a deadline is already active for this side's turn
     if (gameState && gameState.phase === "playing" && gameState.turn === side && gameState.voteDeadline) {
       startVoteCountdownDisplay(gameState.voteDeadline, gameState.votePhase || "move");
@@ -310,6 +321,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     const currentGame = gameState.gameId || "";
     if (storedTeam && storedGame && storedGame === currentGame) {
       myTeam = storedTeam;  // same game — keep their team
+      teamLockedGameId = storedGame;
     } else {
       // New game (or no valid stored team) — clear and show picker
       myTeam = null;
@@ -732,10 +744,29 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     gameState = s;
     const currentTurnKey = buildTurnKey(s);
 
-    // First state arrival, or a NEW GAME started → resolve/reset the team selection
-    if (prevGameId === null || prevGameId !== s.gameId) {
+    // Resolve team selection.
+    // Only reset when we can POSITIVELY confirm a different, non-empty gameId
+    // (a genuine New Game). A missing/undefined gameId never clears the team —
+    // that avoids the picker flashing back between turns.
+    const incomingGameId = s.gameId || null;
+    if (incomingGameId) lastKnownGameId = incomingGameId;  // remember last good id
+    if (!myTeam) {
+      // No team in memory yet — try to restore from storage for this game
       resolveStoredTeam();
       if (!myTeam) { showScreen("team"); return; }
+    } else if (incomingGameId && teamLockedGameId && incomingGameId !== teamLockedGameId) {
+      // Genuine new game detected (differs from the game the team was locked to)
+      myTeam = null;
+      selectedCardId = null; selectedFromCell = null; selectedToCell = null;
+      myCardVoteTurn = null; myMoveVoteTurn = null;
+      teamLockedGameId = null;
+      localStorage.removeItem("cybergrid_team");
+      localStorage.removeItem("cybergrid_teamGame");
+      localStorage.removeItem("cybergrid_cardTurn");
+      localStorage.removeItem("cybergrid_moveTurn");
+      localStorage.removeItem("cybergrid_voteCard");
+      showScreen("team");
+      return;
     }
 
     // Turn changed — reset per-turn vote tracking
