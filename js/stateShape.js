@@ -4,6 +4,7 @@
 
 function buildEmptyState() {
   return {
+    gameId: "game_" + Date.now(),  // unique per new game — resets participant team selection
     phase: "setup",
     turn: "blue",
     turnNumber: 1,
@@ -16,7 +17,7 @@ function buildEmptyState() {
     pendingClash: null,
     activeScenario: null,
     votes: {},
-    votePhase: "card",        // 'card' then 'move' each turn
+    votePhase: "move",        // 'move' first (Round 1), then 'card' if clash detected (Round 2)
     voteDeadline: null,       // Unix timestamp ms when current vote phase expires
     votingConfig: {
       blueExpected: 5,
