@@ -222,7 +222,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 
   // ---- State ----
   let gameState = null;
-  let myTeam = localStorage.getItem("cybergrid_team") || null;
+  let myTeam = null;   // resolved after we see the current gameId (see subscribe)
   let selectedCardId = null;
   let voteCountdownInterval = null;
   const VOTE_DURATION_S = 40;
@@ -291,12 +291,31 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 
   function chooseTeam(side) {
     myTeam = side;
+    // Store team tied to the current gameId — resets automatically on a new game
+    const gid = gameState && gameState.gameId ? gameState.gameId : "";
     localStorage.setItem("cybergrid_team", side);
+    localStorage.setItem("cybergrid_teamGame", gid);
     // Start countdown immediately if a deadline is already active for this side's turn
     if (gameState && gameState.phase === "playing" && gameState.turn === side && gameState.voteDeadline) {
       startVoteCountdownDisplay(gameState.voteDeadline, gameState.votePhase || "move");
     }
     routeToCorrectScreen();
+  }
+
+  /** Resolve stored team only if it belongs to the current game */
+  function resolveStoredTeam() {
+    if (!gameState) return;
+    const storedTeam = localStorage.getItem("cybergrid_team");
+    const storedGame = localStorage.getItem("cybergrid_teamGame");
+    const currentGame = gameState.gameId || "";
+    if (storedTeam && storedGame && storedGame === currentGame) {
+      myTeam = storedTeam;  // same game — keep their team
+    } else {
+      // New game (or no valid stored team) — clear and show picker
+      myTeam = null;
+      localStorage.removeItem("cybergrid_team");
+      localStorage.removeItem("cybergrid_teamGame");
+    }
   }
 
   // ---- Routing ----
@@ -704,15 +723,22 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   FireState.subscribe((s, err) => {
     if (err) { setConn(false); return; }
     setConn(true);
-    if (!s) { gameState = null; if (myTeam) routeToCorrectScreen(); return; }
+    if (!s) { gameState = null; showScreen("team"); return; }
 
+    const prevGameId = gameState ? gameState.gameId : null;
     const prevTurnKey = gameState ? buildTurnKey(gameState) : null;
     const prevVotePhase = gameState ? (gameState.votePhase||"move") : "move";
     const prevDeadline = gameState ? gameState.voteDeadline : null;
     gameState = s;
     const currentTurnKey = buildTurnKey(s);
 
-    // Turn changed — reset everything
+    // First state arrival, or a NEW GAME started → resolve/reset the team selection
+    if (prevGameId === null || prevGameId !== s.gameId) {
+      resolveStoredTeam();
+      if (!myTeam) { showScreen("team"); return; }
+    }
+
+    // Turn changed — reset per-turn vote tracking
     if (prevTurnKey && currentTurnKey !== prevTurnKey) {
       selectedCardId = null; selectedFromCell = null; selectedToCell = null;
       myCardVoteTurn = null; myMoveVoteTurn = null;
@@ -749,7 +775,9 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   });
 
   FireState.init();
-  if (myTeam) setTimeout(() => { if (gameState) routeToCorrectScreen(); }, 300);
+  // Team is resolved in the subscribe callback once we know the current gameId.
+  // Show the picker immediately; subscribe will keep it or route past it.
+  showScreen("team");
 
 })();
 </script>
