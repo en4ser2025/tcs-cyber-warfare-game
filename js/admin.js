@@ -780,11 +780,13 @@
     document.getElementById("odds-num").style.color = result.attackerOdds >= 50 ? "var(--red-core)" : "var(--blue-core)";
   }
 
-  function applyResolution() {
+  function applyResolution(autoRoll) {
     const { fromUnit, toUnit } = currentClashCards();
     const attackerCardId = (selectedCardId && cardFilterSide === fromUnit.side) ? selectedCardId : null;
     const defenderCardId = (selectedCardId && cardFilterSide === toUnit.side) ? selectedCardId : null;
-    const roll = parseInt(document.getElementById("roll-input").value, 10) || Math.floor(Math.random()*100)+1;
+    const roll = (typeof autoRoll === "number")
+      ? autoRoll
+      : (parseInt(document.getElementById("roll-input").value, 10) || Math.floor(Math.random()*100)+1);
 
     const atkDef = GameEngine.findPieceDef(fromUnit.pieceId);
     const defDef = GameEngine.findPieceDef(toUnit.pieceId);
@@ -1102,13 +1104,21 @@
       renderTurnInstruction();
       renderVoteTally();
 
-      // If we have a pending clash move from the move vote, open resolve panel now
+      // If we have a pending clash move from the move vote, auto-resolve it now
       const clash = state.pendingClashMove;
       if (clash && state.board[clash.fromCell] && state.board[clash.toCell]) {
         selectedCell = clash.fromCell;
         pendingMove = { fromCell: clash.fromCell, toCell: clash.toCell, type: "clash" };
+        // Show the matchup on the projector
         openResolvePanel();
-        flashHint(`"${card.name}" armed — resolve the clash between ${clash.fromCell} and ${clash.toCell}.`);
+        const roll = Math.floor(Math.random() * 100) + 1;
+        const rollInput = document.getElementById("roll-input");
+        if (rollInput) rollInput.value = roll;
+        updateOddsPreview();
+        flashHint(`"${card.name}" armed — resolving clash at ${clash.fromCell} vs ${clash.toCell}…`);
+        // Resolve immediately with the generated roll. We capture the roll and
+        // pending cells here so an intervening subscribe callback can't disrupt it.
+        applyResolution(roll);
       } else {
         flashHint(`"${card.name}" armed — click a piece on the board to complete the move.`);
       }
