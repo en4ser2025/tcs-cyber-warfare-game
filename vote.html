@@ -788,16 +788,28 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       if (wrap) wrap.style.display = "none";
     }
 
-    // VotePhase flipped move→card: clash detected, open card voting
-    const newPhase = s.votePhase || "move";
-    if (newPhase === "card" && prevVotePhase === "move" && myTeam && s.turn === myTeam) {
-      selectedCardId = null;
-      showScreen("card"); renderCardScreen(); return;
-    }
-
     if (!myTeam) return;
 
-    // Update currently-visible screen
+    const newPhase = s.votePhase || "move";
+    const phaseChanged = newPhase !== prevVotePhase;
+
+    // Whenever the vote phase changes (move→card on a clash, or card→move on the
+    // next turn), reset any stale selection and force EVERY device to re-evaluate
+    // which screen it should show. This is what makes phones auto-refresh into the
+    // new round instead of getting stuck on the previous screen.
+    if (phaseChanged) {
+      if (newPhase === "card") {
+        // A clash was detected — the card round just opened
+        selectedCardId = null;
+      } else if (newPhase === "move") {
+        // Back to a fresh move round
+        selectedCardId = null; selectedFromCell = null; selectedToCell = null;
+      }
+      routeToCorrectScreen();
+      return;
+    }
+
+    // No phase change — just refresh whatever screen is currently visible
     const activeScreen = Object.keys(screens).find(k=>screens[k].classList.contains("active"));
     if (activeScreen === "card") renderCardScreen();
     else if (activeScreen === "move") renderMoveScreen();
