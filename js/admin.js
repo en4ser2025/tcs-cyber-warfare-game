@@ -396,6 +396,16 @@
         return;
       }
 
+      // Validate the engagement makes sense (technical attackers can't clash with humans)
+      const attackerId = fromUnit.side === state.turn ? fromUnit.pieceId : targetUnit.pieceId;
+      const defenderId = fromUnit.side === state.turn ? targetUnit.pieceId : fromUnit.pieceId;
+      const engagement = GameEngine.canEngage(attackerId, defenderId);
+      if (!engagement.allowed) {
+        flashHint("⚠ Invalid target: " + engagement.reason);
+        logEvent("system", "Blocked engagement — " + engagement.reason);
+        return;
+      }
+
       // clash setup — open the resolve panel
       pendingMove = { fromCell: selectedCell, toCell: key, type: "clash" };
       openResolvePanel();
@@ -757,10 +767,13 @@
     const { fromUnit, toUnit } = currentClashCards();
     const atkDef = GameEngine.findPieceDef(fromUnit.pieceId);
     const defDef = GameEngine.findPieceDef(toUnit.pieceId);
+    const atkNature = atkDef?.nature || "human";
+    const defNature = defDef?.nature || "human";
+    const natureIcon = n => n === "human" ? "👤" : (n === "system" ? "🖥" : "⚙");
     document.getElementById("clash-summary").innerHTML = `
-      <span style="color:var(--${fromUnit.side==='blue'?'blue':'red'}-core)">${atkDef?.name}</span>
+      <span style="color:var(--${fromUnit.side==='blue'?'blue':'red'}-core)">${natureIcon(atkNature)} ${atkDef?.name}</span>
       <span>vs</span>
-      <span style="color:var(--${toUnit.side==='blue'?'blue':'red'}-core)">${defDef?.name}</span>
+      <span style="color:var(--${toUnit.side==='blue'?'blue':'red'}-core)">${natureIcon(defNature)} ${defDef?.name}</span>
     `;
     if (!document.getElementById("roll-input").value) {
       document.getElementById("roll-input").value = Math.floor(Math.random()*100)+1;
@@ -1181,6 +1194,21 @@
       pendingMove = { fromCell, toCell, type: "move" };
       completeSimpleMove();
     } else if (toUnit.side !== fromUnit.side) {
+      // Validate the engagement — technical attackers cannot clash with humans
+      const attackerId = fromUnit.side === state.turn ? fromUnit.pieceId : toUnit.pieceId;
+      const defenderId = fromUnit.side === state.turn ? toUnit.pieceId : fromUnit.pieceId;
+      const engagement = GameEngine.canEngage(attackerId, defenderId);
+      if (!engagement.allowed) {
+        // Invalid clash — reject and reopen the move vote
+        logEvent("system", "Voted move blocked — " + engagement.reason);
+        flashHint("⚠ Voted move invalid: " + engagement.reason + " Re-opening move vote.");
+        const deadline = Date.now() + VOTE_DURATION_MS;
+        FireState.update({ votePhase: "move", votes: {}, voteDeadline: deadline, pendingClashMove: null });
+        startCountdownFrom(deadline, "move");
+        renderVoteTally();
+        return;
+      }
+
       // Clash detected — open Round 2 card voting before resolving
       selectedCell = fromCell;
       pendingMove = { fromCell, toCell, type: "clash" };
@@ -1267,8 +1295,11 @@
         logEvent("system", "Move vote timer expired with no votes — admin please move a piece manually.");
       }
     } else if (phase === "card") {
-      if (selectedCardId || pendingMove) {
-        logEvent("system", "Card vote timer expired — admin has control, continuing.");
+      // Note: during a clash card vote, pendingMove is ALWAYS set (it holds the
+      // clash move). So we must NOT treat pendingMove as "admin is busy" here —
+      // only a manually-armed card should block the timer auto-apply.
+      if (selectedCardId) {
+        logEvent("system", "Card vote timer expired — admin has a card armed, continuing.");
         return;
       }
       const tally = buildTally(state.turn);
@@ -1277,9 +1308,30 @@
         logEvent("system", "Card vote timer expired — auto-applying majority card vote.");
         applyWinningCard(true, sorted[0][0]);
       } else {
-        logEvent("system", "Card vote timer expired with no votes — admin please select a card or resolve manually.");
+        // No card votes — resolve the clash with no card played, using a random roll
+        logEvent("system", "Card vote timer expired with no votes — resolving clash without a card.");
+        resolveClashWithoutCard();
       }
     }
+  }
+
+  /** Resolve the pending clash with no scenario card (timer expired, no votes) */
+  function resolveClashWithoutCard() {
+    const clash = state.pendingClashMove;
+    if (!clash || !state.board[clash.fromCell] || !state.board[clash.toCell]) {
+      // No valid pending clash — just move on
+      autoEndTurn();
+      return;
+    }
+    selectedCell = clash.fromCell;
+    selectedCardId = null;              // no card in play
+    pendingMove = { fromCell: clash.fromCell, toCell: clash.toCell, type: "clash" };
+    openResolvePanel();
+    const roll = Math.floor(Math.random() * 100) + 1;
+    const rollInput = document.getElementById("roll-input");
+    if (rollInput) rollInput.value = roll;
+    updateOddsPreview();
+    applyResolution(roll);
   }
 
   // ---------------- ELIMINATION ANIMATION ----------------

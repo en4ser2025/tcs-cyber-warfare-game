@@ -40,6 +40,18 @@ const GameEngine = (function () {
     attackerOdds += atkCard ? atkCard.modifier : 0;
     attackerOdds -= defCard ? defCard.modifier : 0;
 
+    // --- Nature-based realism adjustment ---
+    // Human (social) attackers targeting human defenders are in their element:
+    // manipulation, phishing, and pretexting work best against people.
+    const atkNature = attackerPieceDef?.nature || "human";
+    const defNature = defenderPieceDef?.nature || "human";
+    if (atkNature === "human" && defNature === "human") {
+      attackerOdds += 8;   // social attacks favour the attacker against people
+    } else if (atkNature === "human" && defNature === "system") {
+      attackerOdds -= 8;   // a person alone struggles to defeat a hardened system head-on
+    }
+    // (technical vs human is blocked upstream and never reaches here)
+
     // Clamp to a sane range — even the best play shouldn't be a 100% lock
     // (keeps the game from feeling pre-determined), and even the worst
     // shouldn't be a flat-zero auto-loss.
@@ -99,6 +111,57 @@ const GameEngine = (function () {
   }
 
   /**
+   * Determine whether an attacker piece can legitimately engage a defender piece,
+   * based on their nature (human vs system/technical).
+   *
+   * Rule of thumb:
+   *  - A purely TECHNICAL attacker (Zero-Day, Ransomware, Recon Scanner) is code/tooling.
+   *    Code exploits SYSTEMS, not people. It cannot "attack" a human defender.
+   *  - A HUMAN attacker (Social Engineer, Phishing, APT, Insider, Botnet Master) can
+   *    engage EITHER a human (manipulation, coercion) or a system (they operate tools).
+   *  - Human DEFENDERS may still DETECT technical attackers (that's the SOC's job), but
+   *    a technical attacker cannot initiate a clash against a human — it has no way to
+   *    "beat" a person in direct combat.
+   *
+   * @param {string} attackerPieceId
+   * @param {string} defenderPieceId
+   * @returns {Object} { allowed: boolean, reason: string }
+   */
+  function canEngage(attackerPieceId, defenderPieceId) {
+    const atk = findPieceDef(attackerPieceId);
+    const def = findPieceDef(defenderPieceId);
+    if (!atk || !def) return { allowed: true, reason: "" };
+
+    const atkNature = atk.nature || "human";
+    const defNature = def.nature || "human";
+
+    // Technical attacker vs human defender → not allowed
+    if (atkNature === "technical" && defNature === "human") {
+      return {
+        allowed: false,
+        reason: `${atk.name} is a technical exploit — it can compromise systems, not people. A ${def.name} (human) can only be reached through social attacks (phishing, social engineering, insider access).`
+      };
+    }
+
+    // Everything else is allowed:
+    //  - human attacker vs anyone (they can manipulate people or wield tools)
+    //  - technical attacker vs system/technical (code vs code/system)
+    //  - system defenders vs anything
+    return { allowed: true, reason: "" };
+  }
+
+  /**
+   * Given an attacker, return the list of defender natures it can legitimately target.
+   * Used to validate scenario cards and highlight valid destinations.
+   */
+  function validTargetNatures(attackerPieceId) {
+    const atk = findPieceDef(attackerPieceId);
+    const atkNature = atk?.nature || "human";
+    if (atkNature === "technical") return ["system", "technical"];
+    return ["human", "system", "technical"]; // humans can target anything
+  }
+
+  /**
    * Check win conditions given full game state.
    * @param {Object} state - { detectionMeter, serverBreached, board, blueRemaining, redRemaining }
    * @returns {Object|null} { winner: 'blue'|'red', reason } or null if game continues
@@ -125,7 +188,9 @@ const GameEngine = (function () {
     resolveClash,
     resolveSpecial,
     checkWinConditions,
-    findPieceDef
+    findPieceDef,
+    canEngage,
+    validTargetNatures
   };
 })();
 
