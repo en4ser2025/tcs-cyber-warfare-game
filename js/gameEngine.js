@@ -65,10 +65,10 @@ const GameEngine = (function () {
       ? `${attackerPieceDef?.name || "Attacker"} prevails (${attackerOdds}% odds, rolled ${roll}).`
       : `${defenderPieceDef?.name || "Defender"} holds the line (${attackerOdds}% attacker odds, rolled ${roll}).`;
 
-    return finalize(outcome, summary, attacker, defender, atkCard, defCard, attackerOdds, roll, forcedReveal);
+    return finalize(outcome, summary, attacker, defender, atkCard, defCard, attackerOdds, roll, forcedReveal, opts.flags);
   }
 
-  function finalize(outcome, summary, attacker, defender, atkCard, defCard, attackerOdds, roll, forcedReveal) {
+  function finalize(outcome, summary, attacker, defender, atkCard, defCard, attackerOdds, roll, forcedReveal, flags) {
     return {
       outcome,                 // 'attacker' | 'defender'
       summary,
@@ -78,31 +78,48 @@ const GameEngine = (function () {
       defenderCard: defCard,
       revealAttacker: forcedReveal || outcome === "attacker" || true, // clashes always reveal both in this ruleset
       revealDefender: true,
-      detectionGain: computeDetectionGain(attacker, defender, atkCard, outcome, forcedReveal)
+      detectionGain: computeDetectionGain(attacker, defender, atkCard, outcome, forcedReveal, flags)
     };
   }
 
   /**
-   * How much the detection meter rises after this clash.
+   * How much the detection meter changes after this clash.
    * Loud failed attacks and forced honeypot reveals raise it most.
+   * The optional `flags` object carries deferred-effect stealth modifiers set
+   * by earlier Red cards ("Living off the Land" suppresses, "Blend" halves).
+   * Returns a signed number; callers clamp the meter to 0..DETECTION_MAX.
    */
-  function computeDetectionGain(attacker, defender, atkCard, outcome, forcedReveal) {
+  function computeDetectionGain(attacker, defender, atkCard, outcome, forcedReveal, flags) {
+    flags = flags || {};
     let base = atkCard ? atkCard.detectionRisk : 10;
     if (outcome === "defender") base += 5;       // failed attacks are noisier
     if (forcedReveal) base += 15;                 // honeypot catches are very noisy
-    return Math.max(0, base);
+
+    // Deferred-effect stealth cards modify this action's noise:
+    if (base > 0 && flags.suppressNextDetection) {
+      base = 0;                                   // "Living off the Land" — this action is silent
+    } else if (base > 0 && flags.halveNextDetection) {
+      base = Math.round(base / 2);                // "Timestomp / Blend" — half as noisy
+    }
+    // Note: negative base (a stealth card played as an engage) is allowed through.
+    return base;
   }
 
   /**
-   * Resolve a non-combat "special" scenario play (recon, threat hunt, etc).
+   * Resolve a non-combat "special" scenario play (recon, threat hunt, stealth, etc).
    * Returns guidance text for the admin; does not move pieces.
+   * detectionGain may be negative for detection-reducing (stealth) cards.
    */
   function resolveSpecial(cardId) {
     const card = SCENARIO_CARDS.find(c => c.id === cardId);
     if (!card) return null;
+    const gain = typeof card.detectionRisk === "number" ? card.detectionRisk : 0;
     return {
       card,
-      detectionGain: card.detectionRisk || 0
+      detectionGain: gain,
+      // Flags this card SETS for the next action (deferred-effect stealth cards)
+      setsSuppressNextDetection: !!card.suppressNextDetection,
+      setsHalveNextDetection: !!card.halveNextDetection
     };
   }
 
@@ -163,23 +180,40 @@ const GameEngine = (function () {
 
   /**
    * Check win conditions given full game state.
-   * @param {Object} state - { detectionMeter, serverBreached, board, blueRemaining, redRemaining }
-   * @returns {Object|null} { winner: 'blue'|'red', reason } or null if game continues
+   * @param {Object} state - { mode, detectionMeter, processSafety, safeStateTripped,
+   *                            serverBreached, board, blueRemaining, redRemaining }
+   * @returns {Object|null} { winner, reason, severity? } or null if game continues
    */
   function checkWinConditions(state) {
+    const isOT = state.mode === "ot";
+
+    // OT: physical-damage loss — the worst outcome. Red drove the process past
+    // its safety limit while Blue had NOT tripped to a safe state.
+    if (isOT && (state.processSafety || 0) >= PROCESS_MAX && !state.safeStateTripped) {
+      return {
+        winner: "red",
+        severity: "critical",
+        reason: "PHYSICAL DAMAGE — the process was driven past its safety limit before Blue tripped to a safe state. Worst-case outcome."
+      };
+    }
+
     if (state.detectionMeter >= DETECTION_MAX) {
-      return { winner: "blue", reason: "SOC detection threshold reached — the intrusion was caught in progress." };
+      return { winner: "blue", reason: isOT
+        ? "OT monitoring threshold reached — the intrusion was caught in progress."
+        : "SOC detection threshold reached — the intrusion was caught in progress." };
     }
     if (state.serverBreached) {
-      return { winner: "red", reason: "The Critical Server was breached and taken offline undetected." };
+      return { winner: "red", reason: isOT
+        ? "The PLC/RTU was compromised and the process manipulated undetected."
+        : "The Critical Server was breached and taken offline undetected." };
     }
     if (state.redRemaining === 0) {
       return { winner: "blue", reason: "All attacking units have been neutralized." };
     }
-    // Blue loses automatically only if the server itself is eliminated (handled by serverBreached)
-    // If Blue has zero MOVABLE pieces left (server can't move), Red effectively wins by attrition:
     if (state.blueMovableRemaining === 0) {
-      return { winner: "red", reason: "All defending units have been neutralized — the server stands undefended." };
+      return { winner: "red", reason: isOT
+        ? "All plant defenders have been neutralized — the process stands undefended."
+        : "All defending units have been neutralized — the server stands undefended." };
     }
     return null;
   }

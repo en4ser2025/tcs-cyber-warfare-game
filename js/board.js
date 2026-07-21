@@ -141,10 +141,72 @@
   }
 
   // ---- Detection meter ----
+  let _lastDetectionPct = null;
+  let _lastProcessPct = null;
   function renderDetection(state) {
     const pct = Math.max(0, Math.min(100, state.detectionMeter || 0));
-    document.getElementById("detection-fill").style.width = pct + "%";
-    document.getElementById("detection-pct").textContent = pct + "%";
+    const fill = document.getElementById("detection-fill");
+    const label = document.getElementById("detection-pct");
+    fill.style.width = pct + "%";
+    label.textContent = pct + "%";
+
+    // Mode-specific detection label
+    const isOT = (state.mode === "ot");
+    const eyebrow = document.getElementById("detection-eyebrow");
+    if (eyebrow) eyebrow.textContent = isOT ? "OT Detection" : "SOC Detection";
+
+    // If detection DROPPED (a Red stealth play), flash the meter to signal it.
+    if (_lastDetectionPct !== null && pct < _lastDetectionPct) {
+      fill.classList.remove("detection-drop");
+      void fill.offsetWidth;
+      fill.classList.add("detection-drop");
+      showStealthBadge(_lastDetectionPct - pct);
+    }
+    _lastDetectionPct = pct;
+
+    // OT second meter — process safety (Stage 4)
+    const pm = document.getElementById("process-meter");
+    if (pm) {
+      if (isOT) {
+        pm.style.display = "";
+        const ppct = Math.max(0, Math.min(100, state.processSafety || 0));
+        const pfill = document.getElementById("process-fill");
+        const plabel = document.getElementById("process-pct");
+        const pstatus = document.getElementById("process-status");
+        if (pfill) pfill.style.width = ppct + "%";
+        if (plabel) plabel.textContent = ppct + "%";
+        if (pstatus) {
+          if (state.safeStateTripped) pstatus.textContent = "SAFE-STATE TRIPPED";
+          else if (ppct >= 100) pstatus.textContent = "PHYSICAL DAMAGE";
+          else pstatus.textContent = "100% = physical damage";
+        }
+        // Pulse the process meter red when it rises into danger
+        if (pfill && _lastProcessPct !== null && ppct > _lastProcessPct && ppct >= 60) {
+          pfill.classList.remove("process-danger");
+          void pfill.offsetWidth;
+          pfill.classList.add("process-danger");
+        }
+        _lastProcessPct = ppct;
+      } else {
+        pm.style.display = "none";
+      }
+    }
+  }
+
+  // Brief on-board banner announcing a stealth play
+  function showStealthBadge(amount) {
+    let badge = document.getElementById("stealth-badge");
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.id = "stealth-badge";
+      badge.className = "stealth-badge";
+      const meter = document.getElementById("detection-fill")?.closest(".detection-meter, .meter, section, div") || document.body;
+      meter.appendChild(badge);
+    }
+    badge.textContent = `🕶 STEALTH \u2212${amount}% DETECTION`;
+    badge.classList.remove("show");
+    void badge.offsetWidth;
+    badge.classList.add("show");
   }
 
   // ---- Phase / turn pills ----
@@ -152,6 +214,33 @@
     const phaseText = document.getElementById("phase-text");
     const turnPill = document.getElementById("turn-pill");
     const turnText = document.getElementById("turn-text");
+
+    // Mode badge (Stage 2) — reads state.mode, styled per mode
+    const modePill = document.getElementById("mode-pill");
+    const modeText = document.getElementById("mode-text");
+    if (modePill && modeText) {
+      const mode = state.mode || "it";
+      if (mode === "ot") {
+        modeText.textContent = "OT MODE";
+        modePill.style.background = "linear-gradient(90deg,#5e3a1c,#8c6a2e)";
+        modePill.style.borderColor = "#c89b3d";
+      } else {
+        modeText.textContent = "IT MODE";
+        modePill.style.background = "linear-gradient(90deg,#1c3a5e,#2e5a8c)";
+        modePill.style.borderColor = "#3d78c8";
+      }
+    }
+
+    // Mode-specific copy (Stage 3) — roster titles + subtitle from the active pack
+    if (typeof getPack === "function") {
+      const pack = getPack(state.mode || "it");
+      const subtitle = document.getElementById("board-subtitle");
+      const blueTitle = document.getElementById("blue-roster-title");
+      const redTitle = document.getElementById("red-roster-title");
+      if (subtitle) subtitle.innerHTML = pack.tagline + " &mdash; Live Board";
+      if (blueTitle) blueTitle.textContent = pack.blueName.replace(/—/g, "\u2014");
+      if (redTitle) redTitle.textContent = pack.redName.replace(/—/g, "\u2014");
+    }
 
     phaseText.textContent = (state.phase || "setup").toUpperCase();
 
@@ -218,6 +307,43 @@
     document.getElementById("win-title").textContent =
       state.winner === "blue" ? "DEFENDERS WIN" : "ATTACKERS WIN";
     document.getElementById("win-reason").textContent = state.winReason || "";
+    renderDebrief(state);
+  }
+
+  function bandColor(b) {
+    return b === "Strong" ? "#37e39b" : b === "Proficient" ? "#7ad0ff"
+         : b === "Developing" ? "#e0a53a" : "#e05a4a";
+  }
+
+  function renderDebrief(state) {
+    const el = document.getElementById("debrief");
+    if (!el || typeof Assessment === "undefined") return;
+    let result;
+    try { result = Assessment.scoreGame(state); } catch (e) { el.innerHTML = ""; return; }
+
+    function teamBlock(teamKey, label, data) {
+      const catRows = data.categories.map(c => `
+        <div class="debrief-cat">
+          <span class="debrief-cat-label">${c.label}</span>
+          <span class="debrief-cat-score" style="color:${bandColor(c.band)}">${c.score}</span>
+        </div>`).join("");
+      return `
+        <div class="debrief-team debrief-${teamKey}">
+          <div class="debrief-team-head">
+            <span class="debrief-team-name">${label}</span>
+            <span class="debrief-band" style="color:${bandColor(data.band)}">${data.band} · ${data.overall}</span>
+          </div>
+          ${catRows}
+        </div>`;
+    }
+
+    el.innerHTML = `
+      <div class="debrief-title">Team Assessment${result.mode === "ot" ? " · OT Exercise" : " · IT Exercise"}</div>
+      <div class="debrief-teams">
+        ${teamBlock("blue", "Defenders (Blue)", result.blue)}
+        ${teamBlock("red", "Attackers (Red)", result.red)}
+      </div>
+      <div class="debrief-foot">Full rationale and a downloadable report are available from the admin console.</div>`;
   }
 
   // ---- Connection indicator ----
@@ -317,9 +443,9 @@
 
     const tallyEl = document.getElementById("vote-strip-tally");
     tallyEl.innerHTML = "";
-    const phaseLabel = votePhase === "card" ? "Round 1 — Card vote" :
+    const phaseLabel = votePhase === "card" ? "Round 2 — Card vote (clash)" :
                        votePhase === "move-only" ? "Move vote (no combat)" :
-                       "Round 2 — Move vote";
+                       "Round 1 — Move vote";
     const hdr = document.createElement("div");
     hdr.style.cssText = "font-family:var(--font-mono);font-size:10px;color:var(--text-low);margin-bottom:3px;";
     hdr.textContent = `${side.toUpperCase()} · ${phaseLabel} · ${totalVotes}/${expected} (need ${quorum})`;
@@ -441,6 +567,8 @@
       }
       setConnStatus(true);
       if (!state) return; // empty room, waiting for admin to initialize
+      // Keep the active game pack in sync with this game's mode (Stage 3)
+      if (state.mode && typeof setActivePack === "function") setActivePack(state.mode);
       if (state.board) detectAndAnimateEliminations(state.board);
       renderAll(state);
     });

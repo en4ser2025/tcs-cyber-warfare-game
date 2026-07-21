@@ -134,6 +134,7 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 <div class="hdr">
   <h1>CRITICAL INFRASTRUCTURE SIM</h1>
   <div class="sub">SCENARIO VOTING</div>
+  <div id="mode-badge" style="display:none; margin-top:6px; font-family:var(--font-display,monospace); font-size:11px; font-weight:800; letter-spacing:0.08em; padding:3px 10px; border-radius:5px; border:1px solid #3d78c8; background:linear-gradient(90deg,#1c3a5e,#2e5a8c); color:#cfe2ff;">IT MODE</div>
 </div>
 
 <div class="status-bar">
@@ -278,6 +279,25 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
   function setConn(online) {
     document.getElementById("conn-dot").className = "status-dot " + (online ? "live" : "err");
     document.getElementById("conn-text").textContent = online ? "live" : "disconnected";
+  }
+
+  // Mode badge (Stage 2) — reflects the game's locked mode
+  function renderModeBadge(mode) {
+    const badge = document.getElementById("mode-badge");
+    if (!badge) return;
+    if (!mode) { badge.style.display = "none"; return; }
+    badge.style.display = "inline-block";
+    if (mode === "ot") {
+      badge.textContent = "OT MODE";
+      badge.style.background = "linear-gradient(90deg,#5e3a1c,#8c6a2e)";
+      badge.style.borderColor = "#c89b3d";
+      badge.style.color = "#ffe6c2";
+    } else {
+      badge.textContent = "IT MODE";
+      badge.style.background = "linear-gradient(90deg,#1c3a5e,#2e5a8c)";
+      badge.style.borderColor = "#3d78c8";
+      badge.style.color = "#cfe2ff";
+    }
   }
 
   function buildTurnKey(s) { return s.turnKey || ("t" + (s.turnNumber||1) + "-" + (s.turn||"blue")); }
@@ -742,6 +762,8 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     const prevVotePhase = gameState ? (gameState.votePhase||"move") : "move";
     const prevDeadline = gameState ? gameState.voteDeadline : null;
     gameState = s;
+    if (s.mode && typeof setActivePack === "function") setActivePack(s.mode);  // Stage 3
+    renderModeBadge(s.mode);   // Stage 2 — show the game's locked mode
     const currentTurnKey = buildTurnKey(s);
 
     // Resolve team selection.

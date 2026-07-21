@@ -8,17 +8,15 @@
       single shared game document at /games/{GAME_ID}.
    ============================================================ */
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// >>> REPLACE THIS WITH YOUR OWN FIREBASE PROJECT CONFIG <<<
 const firebaseConfig = {
-  apiKey: "AIzaSyAO7xzue9VYW6YMOspLcDp1KYAOfFHmcN4",
-  authDomain: "tcs--cyber-scenario-game-2026.firebaseapp.com",
-  databaseURL: "https://tcs--cyber-scenario-game-2026-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "tcs--cyber-scenario-game-2026",
-  storageBucket: "tcs--cyber-scenario-game-2026.firebasestorage.app",
-  messagingSenderId: "1006359233924",
-  appId: "1:1006359233924:web:1762b919e627e48968c9d1",
-  measurementId: "G-GDSE7DLKMW"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 // A fixed game-room id keeps this simple for a single in-person session.

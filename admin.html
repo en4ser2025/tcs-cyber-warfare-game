@@ -43,6 +43,7 @@
     <button class="btn btn-sm btn-ghost" id="end-turn-btn" disabled>End Turn</button>
     <button class="btn btn-sm btn-ghost" id="open-voting-btn" disabled>&#x1F4F1; Open Voting</button>
     <button class="btn btn-sm btn-ghost" id="reset-game-btn">Reset Board</button>
+    <button class="btn btn-sm btn-ghost" id="download-report-btn" style="display:none;">&#x1F4C4; Download Report</button>
     <span class="pill" id="setup-progress-pill" style="display:none;"><span class="pill-dot"></span><span id="setup-progress-text"></span></span>
     <span style="flex:1"></span>
     <span class="pill" id="phase-pill"><span class="pill-dot"></span><span id="phase-text">SETUP</span></span>
@@ -76,6 +77,25 @@
             <input type="number" id="detection-adjust" class="pin-input" style="font-size:14px; letter-spacing:0; padding:6px; flex:1;" value="10" min="0" max="100">
             <button class="btn btn-sm btn-ghost" id="detection-add-btn">+ Add</button>
             <button class="btn btn-sm btn-ghost" id="detection-sub-btn">&minus; Sub</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section" id="ot-controls" style="display:none;">
+        <div class="panel-title" style="color:#e0a53a;">OT — Process Safety</div>
+        <div class="section-body">
+          <div class="detection-bar-track"><div class="detection-bar-fill" id="process-fill-admin" style="width:0%;background:linear-gradient(90deg,#e0a53a,#d94a2a);"></div></div>
+          <div class="detection-label"><span id="process-pct-admin">0%</span><span id="process-status-admin">Max 100 = physical damage</span></div>
+          <div style="display:flex; gap:6px; margin-top:10px;">
+            <input type="number" id="process-adjust" class="pin-input" style="font-size:14px; letter-spacing:0; padding:6px; flex:1;" value="10" min="0" max="100">
+            <button class="btn btn-sm btn-ghost" id="process-add-btn">+ Add</button>
+            <button class="btn btn-sm btn-ghost" id="process-sub-btn">&minus; Sub</button>
+          </div>
+          <button class="btn btn-sm" id="safe-state-btn" style="width:100%; margin-top:10px; background:linear-gradient(90deg,#7a4a12,#b06a1a); color:#ffe;">⚠ Invoke Safe-State Trip</button>
+          <div class="helper-text" style="padding:6px 0 0; font-size:11px;">Halts the process to a guaranteed-safe state. Prevents physical-damage loss, but records an availability penalty. Locked once tripped.</div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+            <span style="font-size:12px; opacity:0.8;">Maintenance windows left:</span>
+            <span id="maint-tokens" style="font-weight:800; color:#7ad;">2</span>
           </div>
         </div>
       </div>
@@ -188,6 +208,27 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="mode-modal" style="display:none;">
+  <div class="panel modal-box">
+    <h3>New Game — Choose Exercise Mode</h3>
+    <p class="helper-text" style="padding:0 0 10px;">Select which domain this session will train. The mode is locked once the game starts; to change it, start another new game.</p>
+    <div id="mode-choices" style="display:flex; flex-direction:column; gap:10px;">
+      <button class="btn btn-blue mode-choice-btn" data-mode="it" style="text-align:left; padding:12px 14px;">
+        <span style="font-weight:800; letter-spacing:0.05em;">IT MODE</span><br>
+        <span style="font-size:12px; opacity:0.8;">Information Technology — Enterprise defense vs advanced persistent threat</span>
+      </button>
+      <button class="btn btn-ghost mode-choice-btn" data-mode="ot" style="text-align:left; padding:12px 14px;">
+        <span style="font-weight:800; letter-spacing:0.05em;">OT MODE</span><br>
+        <span style="font-size:12px; opacity:0.8;">Operational Technology — industrial control system defense vs OT threat actors</span>
+      </button>
+    </div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn btn-ghost btn-sm" id="mode-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
@@ -195,6 +236,7 @@
 <script src="js/stateShape.js"></script>
 <script src="js/firebaseConfig.js"></script>
 <script src="js/gameEngine.js"></script>
+<script src="js/assessment.js"></script>
 <script src="js/adminConfig.js"></script>
 <script src="js/admin.js"></script>
 </body>

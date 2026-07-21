@@ -191,7 +191,7 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
 .roster-row.depleted svg { color: var(--text-low); }
 
 /* Detection meter (inside roster panels, above the piece list) */
-.detection-meter { padding: 5px 8px; }
+.detection-meter { padding: 5px 8px; position: relative; }
 .detection-bar-track {
   height: 8px;
   border-radius: 99px;
@@ -494,4 +494,85 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   font-size: 12px;
   font-weight: 600;
   color: var(--text-mid);
+}
+
+/* ---- Stage 1: Red stealth / detection-reduction feedback ---- */
+/* Green flash on the detection fill when Red lowers the meter */
+.detection-drop {
+  animation: detection-drop-flash 1.1s ease-out;
+}
+@keyframes detection-drop-flash {
+  0%   { background: #37e39b; box-shadow: 0 0 18px 3px rgba(55,227,155,0.85); }
+  40%  { background: #37e39b; box-shadow: 0 0 22px 5px rgba(55,227,155,0.7); }
+  100% { box-shadow: none; }
+}
+
+/* Transient on-board banner announcing a stealth play */
+.stealth-badge {
+  position: absolute;
+  right: 10px;
+  top: -2px;
+  transform: translateY(-6px);
+  background: linear-gradient(90deg, #0d3b2e, #135f45);
+  color: #7ffcc4;
+  font-family: var(--font-display, monospace);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border: 1px solid #37e39b;
+  border-radius: 5px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+}
+.stealth-badge.show {
+  animation: stealth-badge-pop 2.6s ease-out;
+}
+@keyframes stealth-badge-pop {
+  0%   { opacity: 0; transform: translateY(2px) scale(0.9); }
+  12%  { opacity: 1; transform: translateY(-6px) scale(1); }
+  80%  { opacity: 1; transform: translateY(-6px) scale(1); }
+  100% { opacity: 0; transform: translateY(-10px) scale(0.98); }
+}
+
+/* ---- Stage 4: OT process-safety meter danger pulse ---- */
+.process-danger {
+  animation: process-danger-pulse 1.0s ease-out;
+}
+@keyframes process-danger-pulse {
+  0%   { box-shadow: 0 0 16px 3px rgba(217,74,42,0.9); }
+  50%  { box-shadow: 0 0 22px 5px rgba(217,74,42,0.7); }
+  100% { box-shadow: none; }
+}
+
+/* ---- Stage 5: on-screen assessment debrief ---- */
+.debrief { margin-top: 16px; text-align: left; }
+.debrief-title {
+  font-family: var(--font-display, monospace);
+  font-size: 13px; font-weight: 800; letter-spacing: 0.06em;
+  color: #cfe0f5; margin-bottom: 10px; text-align: center;
+}
+.debrief-teams { display: flex; gap: 14px; }
+.debrief-team {
+  flex: 1; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px;
+}
+.debrief-blue { border-top: 3px solid #3d78c8; }
+.debrief-red  { border-top: 3px solid #c0392b; }
+.debrief-team-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.debrief-team-name { font-weight: 700; font-size: 12px; color: #dfe8f2; }
+.debrief-band { font-weight: 800; font-size: 13px; font-family: var(--font-display, monospace); }
+.debrief-cat {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; padding: 2px 0;
+}
+.debrief-cat-label { color: #aebcca; }
+.debrief-cat-score { font-weight: 800; font-family: var(--font-mono, monospace); }
+.debrief-foot {
+  margin-top: 10px; font-size: 10px; color: #8595a6; text-align: center; font-style: italic;
 }

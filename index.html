@@ -20,7 +20,7 @@
   <header class="header">
     <div>
       <h1 class="font-display">CRITICAL INFRASTRUCTURE SIMULATION BOARD</h1>
-      <div class="subtitle">Enterprise Defense vs Advanced Persistent Threat &mdash; Live Board</div>
+      <div class="subtitle" id="board-subtitle">Enterprise Defense vs Advanced Persistent Threat &mdash; Live Board</div>
     </div>
     <div class="header-status">
       <!-- QR code — always visible so participants can scan at any time -->
@@ -28,6 +28,7 @@
         <div id="qr-code"></div>
         <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-low);letter-spacing:0.08em;">SCAN TO VOTE</div>
       </div>
+      <span class="pill" id="mode-pill" style="background:linear-gradient(90deg,#1c3a5e,#2e5a8c);border-color:#3d78c8;"><span id="mode-text">IT MODE</span></span>
       <span class="pill" id="phase-pill"><span class="pill-dot"></span><span id="phase-text">SETUP</span></span>
       <span class="pill" id="turn-pill"><span class="pill-dot"></span><span id="turn-text">&mdash;</span></span>
       <span class="conn-indicator"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">connecting&hellip;</span></span>
@@ -65,11 +66,16 @@
 
     <!-- LEFT: Blue roster + detection meter -->
     <div class="panel roster-panel">
-      <div class="panel-title" style="font-size:10px;padding:5px 8px;">Defenders &mdash; Blue</div>
+      <div class="panel-title" id="blue-roster-title" style="font-size:10px;padding:5px 8px;">Defenders &mdash; Blue</div>
       <div class="panel detection-meter" style="border:none;border-bottom:1px solid var(--line-faint);border-radius:0;background:transparent;">
-        <div class="eyebrow" style="font-size:8px;">SOC Detection</div>
+        <div class="eyebrow" id="detection-eyebrow" style="font-size:8px;">SOC Detection</div>
         <div class="detection-bar-track"><div class="detection-bar-fill" id="detection-fill" style="width:0%"></div></div>
-        <div class="detection-label"><span id="detection-pct">0%</span><span>100% = caught</span></div>
+        <div class="detection-label"><span id="detection-pct">0%</span><span id="detection-caught-label">100% = caught</span></div>
+      </div>
+      <div class="panel process-meter" id="process-meter" style="display:none;border:none;border-bottom:1px solid var(--line-faint);border-radius:0;background:transparent;">
+        <div class="eyebrow" style="font-size:8px;color:#e0a53a;">Process Safety</div>
+        <div class="detection-bar-track"><div class="detection-bar-fill" id="process-fill" style="width:0%;background:linear-gradient(90deg,#e0a53a,#d94a2a);"></div></div>
+        <div class="detection-label"><span id="process-pct">0%</span><span id="process-status">100% = physical damage</span></div>
       </div>
       <div class="roster-list" id="blue-roster"></div>
     </div>
@@ -81,7 +87,7 @@
 
     <!-- RIGHT: Red roster -->
     <div class="panel roster-panel">
-      <div class="panel-title" style="font-size:10px;padding:5px 8px;">Threat Actors &mdash; Red</div>
+      <div class="panel-title" id="red-roster-title" style="font-size:10px;padding:5px 8px;">Threat Actors &mdash; Red</div>
       <div class="roster-list" id="red-roster"></div>
     </div>
 
@@ -112,6 +118,7 @@
     <div class="eyebrow" id="win-eyebrow">GAME OVER</div>
     <h2 id="win-title">&mdash;</h2>
     <p id="win-reason"></p>
+    <div id="debrief" class="debrief"></div>
   </div>
 </div>
 
@@ -121,6 +128,7 @@
 <script src="js/stateShape.js"></script>
 <script src="js/firebaseConfig.js"></script>
 <script src="js/gameEngine.js"></script>
+<script src="js/assessment.js"></script>
 <script src="js/board.js"></script>
 </body>
 </html>

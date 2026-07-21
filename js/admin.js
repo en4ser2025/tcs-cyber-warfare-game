@@ -55,6 +55,8 @@
     cardFilterToggle("blue");
     wireToolbar();
     wireDetectionControls();
+    wireOTControls();
+    wireReportButton();
     wireResolvePanel();
 
     FireState.subscribe((s, err) => {
@@ -71,6 +73,8 @@
       }
       state = s;
       if (!state.board) state.board = {};
+      // Keep the active game pack in sync with this game's mode (Stage 2)
+      if (state.mode) setActivePack(state.mode);
       renderEverything();
       checkQuorum();   // check on every state update
     });
@@ -124,16 +128,19 @@
   // ---------------- TOOLBAR ----------------
   function wireToolbar() {
     document.getElementById("new-game-btn").addEventListener("click", () => {
-      confirmAction(
-        "Start a brand new game?",
-        "This clears the board and randomly re-deploys all pieces. Click Start Game when ready.",
-        () => {
-          state = buildEmptyState();
-          selectedCell = null; setupSelectedPieceId = null;
-          // randomSetup writes to Firebase — call after resetting local state
-          randomSetup();
-        }
-      );
+      openModeChooser((mode) => {
+        confirmAction(
+          "Start a brand new game?",
+          `This starts a new ${mode.toUpperCase()} game, clears the board, and randomly re-deploys all pieces. Click Start Game when ready.`,
+          () => {
+            setActivePack(mode);
+            state = buildEmptyState(mode);
+            selectedCell = null; setupSelectedPieceId = null;
+            // randomSetup writes to Firebase — call after resetting local state
+            randomSetup();
+          }
+        );
+      });
     });
 
     document.getElementById("reset-game-btn").addEventListener("click", () => {
@@ -228,8 +235,9 @@
     ).slice(0, shuffledRed.length); // take only as many cells as there are pieces
     shuffledRed.forEach((piece, i) => { board[redCells[i]] = piece; });
 
-    // Write fresh state with the populated board
-    const newState = buildEmptyState();
+    // Write fresh state with the populated board, preserving the chosen mode
+    const currentMode = (state && state.mode) || ACTIVE_MODE || DEFAULT_MODE;
+    const newState = buildEmptyState(currentMode);
     newState.board = board;
     state = newState;
     FireState.set(newState);
@@ -247,6 +255,29 @@
     function onOk() { cleanup(); onConfirm(); }
     function onCancel() { cleanup(); }
     okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+  }
+
+  /** Open the exercise-mode chooser; calls onChoose(mode) when a mode is picked. */
+  function openModeChooser(onChoose) {
+    const modal = document.getElementById("mode-modal");
+    if (!modal) { onChoose(DEFAULT_MODE); return; }  // graceful fallback
+    modal.style.display = "flex";
+    const btns = Array.from(modal.querySelectorAll(".mode-choice-btn"));
+    const cancelBtn = document.getElementById("mode-cancel");
+    function cleanup() {
+      modal.style.display = "none";
+      btns.forEach(b => b.removeEventListener("click", onPick));
+      cancelBtn.removeEventListener("click", onCancel);
+    }
+    function onPick(e) {
+      const mode = e.currentTarget.getAttribute("data-mode");
+      if (!mode || e.currentTarget.disabled) return;
+      cleanup();
+      onChoose(mode);
+    }
+    function onCancel() { cleanup(); }
+    btns.forEach(b => b.addEventListener("click", onPick));
     cancelBtn.addEventListener("click", onCancel);
   }
 
@@ -462,6 +493,7 @@
       if (!state || state.phase !== "playing") return;
       FireState.update({ turn: next, turnNumber: nextTurnNumber, turnKey: nextTurnKey, activeScenario: null, votes: {}, votePhase: "move", voteDeadline: null, pendingClashMove: null });
       logEvent("system", `Turn ended — now ${next.toUpperCase()}'s turn (#${nextTurnNumber}). Click "Open Voting" when ready.`);
+      setStat("turnsPlayed", (state.stats && state.stats.turnsPlayed || 0) + 1);
       // Clear any running countdown
       if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
       const wrap = document.getElementById("admin-timer-wrap");
@@ -516,6 +548,8 @@
     renderAdminBoard();
     renderRosterAdmin();
     renderDetection();
+    renderOTControls();
+    renderReportButton();
     renderCardList();
     renderAdminLog();
     renderPhaseUI();
@@ -706,6 +740,15 @@
         <div class="admin-note">${card.adminNotes}</div>
       `;
       el.addEventListener("click", () => {
+        // OT restricted patching (Stage 4): the maintenance-window patch needs a token
+        if (card.id === "ot_b_maintenance_patch" && state.mode === "ot" && selectedCardId !== card.id) {
+          const tokens = (typeof state.maintenanceTokens === "number") ? state.maintenanceTokens : 2;
+          if (tokens <= 0) {
+            flashHint("⚠ No maintenance windows left — you can't freely patch production OT. Choose another play.");
+            logEvent("system", "Maintenance-Window Patch blocked — no maintenance windows remaining.");
+            return;
+          }
+        }
         selectedCardId = (selectedCardId === card.id) ? null : card.id;
         renderCardList();
         if (selectedCardId && card.type === "special") {
@@ -722,12 +765,50 @@
     // Non-combat cards: apply their effect immediately and log it.
     const res = GameEngine.resolveSpecial(card.id);
     if (!res) return;
-    const newDetection = Math.min(DETECTION_MAX, (state.detectionMeter || 0) + res.detectionGain);
-    logEvent(cardFilterSide, `${cardFilterSide.toUpperCase()} plays "${card.name}" — ${card.description}`);
-    FireState.update({
+
+    const prevDetection = state.detectionMeter || 0;
+    // Clamp BOTH ends — stealth cards carry negative detectionGain.
+    const newDetection = Math.max(0, Math.min(DETECTION_MAX, prevDetection + res.detectionGain));
+    const delta = newDetection - prevDetection;
+
+    // Deferred-effect stealth flags this card SETS for the next action
+    const update = {
       detectionMeter: newDetection,
       activeScenario: { side: cardFilterSide, cardId: card.id }
-    });
+    };
+    if (res.setsSuppressNextDetection) update.suppressNextDetection = cardFilterSide;
+    if (res.setsHalveNextDetection)   update.halveNextDetection = cardFilterSide;
+
+    // OT: the "Prepare Safe-State Trip" card actually invokes the trip (Stage 4)
+    if (card.id === "ot_b_safe_state" && state.mode === "ot" && !state.safeStateTripped) {
+      update.safeStateTripped = true;
+      logEvent("blue", "⚠ SAFE-STATE TRIP (voted) — process halted to a guaranteed-safe state. Availability sacrificed; physical-damage loss prevented.");
+      state.stats = state.stats || {};
+      state.stats.safeStateTripTurn = state.turnNumber || 1;
+      update.stats = state.stats;
+    }
+
+    // Log — stealth plays (detection dropping, or a deferred flag) read differently
+    if (card.id === "ot_b_safe_state" && update.safeStateTripped) {
+      // already logged above
+    } else if (delta < 0) {
+      logEvent(cardFilterSide, `🕶 ${cardFilterSide.toUpperCase()} plays "${card.name}" — detection ${delta} (now ${newDetection}%). ${card.description}`);
+    } else if (res.setsSuppressNextDetection) {
+      logEvent(cardFilterSide, `🕶 ${cardFilterSide.toUpperCase()} plays "${card.name}" — next action will be silent (no detection).`);
+    } else if (res.setsHalveNextDetection) {
+      logEvent(cardFilterSide, `🕶 ${cardFilterSide.toUpperCase()} plays "${card.name}" — next action draws half the usual attention.`);
+    } else {
+      logEvent(cardFilterSide, `${cardFilterSide.toUpperCase()} plays "${card.name}" — ${card.description}`);
+    }
+
+    FireState.update(update);
+    // Assessment tracking (Stage 5)
+    if (cardFilterSide === "red" && (delta < 0 || res.setsSuppressNextDetection || res.setsHalveNextDetection)) {
+      bumpStat("redStealthCards", 1);
+    }
+    if (cardFilterSide === "blue" && delta > 0) {
+      bumpStat("blueDetectionGains", delta);
+    }
     checkAndApplyWin(newDetection, state.board, false);
     selectedCardId = null;
   }
@@ -804,10 +885,18 @@
     const atkDef = GameEngine.findPieceDef(fromUnit.pieceId);
     const defDef = GameEngine.findPieceDef(toUnit.pieceId);
 
+    // Read any deferred stealth flags set by an earlier Red card. A flag only
+    // applies if it belongs to the ATTACKER's side (stealth is an attacker tool).
+    const attackerSide = fromUnit.side;
+    const flags = {
+      suppressNextDetection: state.suppressNextDetection === attackerSide,
+      halveNextDetection: state.halveNextDetection === attackerSide
+    };
+
     const result = GameEngine.resolveClash(
       { pieceId: fromUnit.pieceId, side: fromUnit.side, rank: atkDef.rank, scenarioCardId: attackerCardId },
       { pieceId: toUnit.pieceId, side: toUnit.side, rank: defDef.rank, scenarioCardId: defenderCardId },
-      { roll }
+      { roll, flags }
     );
 
     // Reveal both pieces publicly
@@ -851,23 +940,70 @@
       boardCopy[toKey] = toUnit;
     }
 
-    const newDetection = Math.min(DETECTION_MAX, (state.detectionMeter || 0) + result.detectionGain);
+    // Clamp BOTH ends — deferred stealth flags can drive the gain to 0.
+    const newDetection = Math.max(0, Math.min(DETECTION_MAX, (state.detectionMeter || 0) + result.detectionGain));
+
+    // OT process-safety rise (Stage 4). Driven by BOTH the attacker card's
+    // processRisk AND proximity — a Red attack adjacent to the PLC objective
+    // nudges the process toward unsafe. Only Red attacks raise it, and only in OT.
+    let newProcessSafety = state.processSafety || 0;
+    let processRise = 0;
+    if ((state.mode === "ot") && fromUnit.side === "red") {
+      const atkCardDef = attackerCardId ? SCENARIO_CARDS.find(c => c.id === attackerCardId) : null;
+      if (atkCardDef && typeof atkCardDef.processRisk === "number") processRise += atkCardDef.processRisk;
+      // Proximity: attacking a cell adjacent to (or onto) the PLC objective adds pressure
+      if (isAdjacentToObjective(toKey, boardCopy) && !state.safeStateTripped) processRise += 8;
+      if (processRise > 0 && state.safeStateTripped) processRise = 0; // tripped process can't be pushed further
+      newProcessSafety = Math.max(0, Math.min(PROCESS_MAX, newProcessSafety + processRise));
+    }
 
     // Keep our local working copy in sync immediately so subsequent reads
     // in this same tick (e.g. checkAndApplyWin below) see the new data,
     // even if a subscribe callback hasn't round-tripped yet.
     state.board = boardCopy;
     state.eliminated = eliminatedCopy;
+    state.processSafety = newProcessSafety;
 
     logEvent("system",
       `${atkDef.name} (${fromUnit.side.toUpperCase()}) engaged ${defDef.name} (${toUnit.side.toUpperCase()}) at ${toKey}: ${result.summary}`);
+    if (processRise > 0) {
+      logEvent("red", `⚠ Process safety rose +${processRise} (now ${newProcessSafety}%).`);
+    }
+    if (flags.suppressNextDetection) {
+      logEvent(attackerSide, `🕶 "Living off the Land" consumed — this attack generated no detection.`);
+    } else if (flags.halveNextDetection) {
+      logEvent(attackerSide, `🕶 "Timestomp / Blend" consumed — this attack drew half the usual attention.`);
+    }
 
-    FireState.update({
+    const update = {
       board: boardCopy,
       eliminated: eliminatedCopy,
       detectionMeter: newDetection,
+      processSafety: newProcessSafety,
       activeScenario: attackerCardId ? { side: fromUnit.side, cardId: attackerCardId } : (defenderCardId ? { side: toUnit.side, cardId: defenderCardId } : null)
-    });
+    };
+    // Consume the deferred stealth flags (they apply to one action only)
+    if (flags.suppressNextDetection) update.suppressNextDetection = null;
+    if (flags.halveNextDetection)   update.halveNextDetection = null;
+
+    // OT restricted patching (Stage 4): using the maintenance-window patch spends a token
+    if (state.mode === "ot" && (attackerCardId === "ot_b_maintenance_patch" || defenderCardId === "ot_b_maintenance_patch")) {
+      const tokens = (typeof state.maintenanceTokens === "number") ? state.maintenanceTokens : 2;
+      const left = Math.max(0, tokens - 1);
+      update.maintenanceTokens = left;
+      logEvent("blue", `🔧 Maintenance window used — ${left} remaining.`);
+      bumpStat("maintenanceUsed", 1);
+    }
+
+    FireState.update(update);
+
+    // Assessment tracking (Stage 5)
+    bumpStat("clashesInitiated." + fromUnit.side, 1);
+    if (fromUnit.side === "red" && result.detectionGain >= 15) bumpStat("redNoisyActions", 1);
+    if (toUnit.side === "blue" && result.detectionGain > 0) bumpStat("blueDetectionGains", result.detectionGain);
+    if (state.mode === "ot" && newProcessSafety > (state.stats && state.stats.peakProcessSafety || 0)) {
+      setStat("peakProcessSafety", newProcessSafety);
+    }
 
     checkAndApplyWin(newDetection, boardCopy, serverBreached);
 
@@ -884,20 +1020,66 @@
     const redRemaining = RED_PIECES.reduce((sum, p) => sum + countAlive("red", p.id, board), 0);
 
     const win = GameEngine.checkWinConditions({
+      mode: state.mode || "it",
       detectionMeter,
+      processSafety: state.processSafety || 0,
+      safeStateTripped: !!state.safeStateTripped,
       serverBreached: !!serverBreachedFlag,
       blueMovableRemaining,
       redRemaining
     });
 
     if (win) {
-      logEvent("system", `GAME OVER — ${win.winner.toUpperCase()} WINS: ${win.reason}`);
-      FireState.update({ phase: "ended", winner: win.winner, winReason: win.reason });
+      const sev = win.severity === "critical" ? " ⚠ CRITICAL" : "";
+      logEvent("system", `GAME OVER${sev} — ${win.winner.toUpperCase()} WINS: ${win.reason}`);
+      FireState.update({ phase: "ended", winner: win.winner, winReason: win.reason, winSeverity: win.severity || null });
     }
   }
 
   function countAlive(side, pieceId, board) {
     return Object.values(board).filter(u => u && u.side === side && u.pieceId === pieceId && !u.eliminated).length;
+  }
+
+  /** Accumulate an assessment stat on the game state (Stage 5). */
+  function bumpStat(path, amount) {
+    if (!state) return;
+    const stats = state.stats || (state.stats = {});
+    const parts = path.split(".");
+    let obj = stats;
+    for (let i = 0; i < parts.length - 1; i++) {
+      obj[parts[i]] = obj[parts[i]] || {};
+      obj = obj[parts[i]];
+    }
+    const key = parts[parts.length - 1];
+    obj[key] = (obj[key] || 0) + (typeof amount === "number" ? amount : 1);
+    FireState.update({ stats });
+  }
+  function setStat(path, value) {
+    if (!state) return;
+    const stats = state.stats || (state.stats = {});
+    const parts = path.split(".");
+    let obj = stats;
+    for (let i = 0; i < parts.length - 1; i++) {
+      obj[parts[i]] = obj[parts[i]] || {};
+      obj = obj[parts[i]];
+    }
+    obj[parts[parts.length - 1]] = value;
+    FireState.update({ stats });
+  }
+
+  /** True if the given cell is on, or orthogonally adjacent to, the Blue objective piece. */
+  function isAdjacentToObjective(cellKeyStr, board) {
+    // Find the objective piece's cell
+    const objIds = BLUE_PIECES.filter(p => p.isObjective).map(p => p.id);
+    let objKey = null;
+    for (const [k, u] of Object.entries(board)) {
+      if (u && u.side === "blue" && objIds.includes(u.pieceId) && !u.eliminated) { objKey = k; break; }
+    }
+    if (!objKey) return false;
+    if (objKey === cellKeyStr) return true;
+    const a = parseCellKey(cellKeyStr), b = parseCellKey(objKey);
+    const dr = Math.abs(a.row - b.row), dc = Math.abs(a.col - b.col);
+    return (dr + dc) === 1;  // orthogonally adjacent
   }
 
   // ---------------- DETECTION MANUAL CONTROLS ----------------
@@ -915,6 +1097,96 @@
       logEvent("system", `Admin manually lowered detection meter by ${amt}.`);
       FireState.update({ detectionMeter: newVal });
     });
+  }
+
+  // ---------------- OT CONTROLS (Stage 4) ----------------
+  function wireOTControls() {
+    const addBtn = document.getElementById("process-add-btn");
+    const subBtn = document.getElementById("process-sub-btn");
+    const tripBtn = document.getElementById("safe-state-btn");
+    if (addBtn) addBtn.addEventListener("click", () => {
+      const amt = parseInt(document.getElementById("process-adjust").value, 10) || 0;
+      const newVal = Math.max(0, Math.min(PROCESS_MAX, (state.processSafety || 0) + amt));
+      logEvent("system", `Admin manually raised process-safety meter by ${amt} (now ${newVal}%).`);
+      FireState.update({ processSafety: newVal });
+      checkAndApplyWin(state.detectionMeter || 0, state.board, false);
+    });
+    if (subBtn) subBtn.addEventListener("click", () => {
+      const amt = parseInt(document.getElementById("process-adjust").value, 10) || 0;
+      const newVal = Math.max(0, (state.processSafety || 0) - amt);
+      logEvent("system", `Admin manually lowered process-safety meter by ${amt}.`);
+      FireState.update({ processSafety: newVal });
+    });
+    if (tripBtn) tripBtn.addEventListener("click", () => {
+      if (state.safeStateTripped) { flashHint("Safe-state already tripped for this game."); return; }
+      confirmAction(
+        "Invoke Safe-State Trip?",
+        "This halts the process to a guaranteed-safe state. It PREVENTS a physical-damage loss for the rest of the game, but records an availability penalty. This cannot be undone.",
+        () => invokeSafeStateTrip()
+      );
+    });
+  }
+
+  /** Blue invokes the Safety Instrumented System to halt the process. */
+  function invokeSafeStateTrip() {
+    if (!state || state.safeStateTripped) return;
+    logEvent("blue", "⚠ SAFE-STATE TRIP invoked — process halted to a guaranteed-safe state. Availability penalty recorded; physical-damage loss is now prevented.");
+    FireState.update({ safeStateTripped: true });
+    setStat("safeStateTripTurn", state.turnNumber || 1);
+    flashHint("Safe-state trip active — the process is safe but availability is sacrificed.");
+  }
+
+  /** Show/hide the Download Report button based on game state, and wire the click. */
+  function wireReportButton() {
+    const btn = document.getElementById("download-report-btn");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      if (!state || typeof Assessment === "undefined") return;
+      let html;
+      try { html = Assessment.buildReportHTML(state); }
+      catch (e) { flashHint("Could not generate the report."); return; }
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+      a.href = url;
+      a.download = `exercise-report-${state.mode || "it"}-${stamp}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      logEvent("system", "Assessment report downloaded.");
+    });
+  }
+
+  function renderReportButton() {
+    const btn = document.getElementById("download-report-btn");
+    if (!btn) return;
+    btn.style.display = (state && state.phase === "ended" && state.winner) ? "" : "none";
+  }
+
+  /** Show/hide OT controls and refresh their values based on the current mode/state. */
+  function renderOTControls() {
+    const panel = document.getElementById("ot-controls");
+    if (!panel) return;
+    const isOT = state && state.mode === "ot";
+    panel.style.display = isOT ? "" : "none";
+    if (!isOT) return;
+    const pct = Math.max(0, Math.min(100, state.processSafety || 0));
+    const fill = document.getElementById("process-fill-admin");
+    const lbl = document.getElementById("process-pct-admin");
+    const status = document.getElementById("process-status-admin");
+    const tokens = document.getElementById("maint-tokens");
+    const tripBtn = document.getElementById("safe-state-btn");
+    if (fill) fill.style.width = pct + "%";
+    if (lbl) lbl.textContent = pct + "%";
+    if (status) status.textContent = state.safeStateTripped ? "SAFE-STATE TRIPPED (availability lost)" : "Max 100 = physical damage";
+    if (tokens) tokens.textContent = (typeof state.maintenanceTokens === "number") ? state.maintenanceTokens : 2;
+    if (tripBtn) {
+      tripBtn.disabled = !!state.safeStateTripped;
+      tripBtn.style.opacity = state.safeStateTripped ? "0.5" : "1";
+      tripBtn.textContent = state.safeStateTripped ? "✓ Safe-State Tripped" : "⚠ Invoke Safe-State Trip";
+    }
   }
 
   // ---------------- VOTING ----------------
@@ -1280,6 +1552,8 @@
 
   function onCountdownExpired(phase) {
     if (!state || state.phase !== "playing") return;
+    // Assessment: a genuinely undecided expiry (no votes) counts against the active team
+    const activeTeam = state.turn;
 
     if (phase === "move") {
       if (selectedCell || pendingMove) {
@@ -1293,6 +1567,7 @@
         applyWinningMove(sorted[0][0]);
       } else {
         logEvent("system", "Move vote timer expired with no votes — admin please move a piece manually.");
+        bumpStat("timerExpiries." + activeTeam, 1);
       }
     } else if (phase === "card") {
       // Note: during a clash card vote, pendingMove is ALWAYS set (it holds the
