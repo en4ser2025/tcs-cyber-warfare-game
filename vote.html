@@ -791,8 +791,12 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       return;
     }
 
-    // Turn changed — reset per-turn vote tracking
-    if (prevTurnKey && currentTurnKey !== prevTurnKey) {
+    // Turn changed — reset per-turn vote tracking AND re-route every device.
+    // A new turn (blue↔red, or the next round) must move phones off the previous
+    // turn's confirm/waiting screen, even when the vote phase is unchanged
+    // (e.g. a simple move turn → next move turn, where votePhase stays "move").
+    const turnChanged = prevTurnKey && currentTurnKey !== prevTurnKey;
+    if (turnChanged) {
       selectedCardId = null; selectedFromCell = null; selectedToCell = null;
       myCardVoteTurn = null; myMoveVoteTurn = null;
       localStorage.removeItem("cybergrid_cardTurn");
@@ -815,18 +819,13 @@ body{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     const newPhase = s.votePhase || "move";
     const phaseChanged = newPhase !== prevVotePhase;
 
-    // Whenever the vote phase changes (move→card on a clash, or card→move on the
-    // next turn), reset any stale selection and force EVERY device to re-evaluate
-    // which screen it should show. This is what makes phones auto-refresh into the
-    // new round instead of getting stuck on the previous screen.
-    if (phaseChanged) {
-      if (newPhase === "card") {
-        // A clash was detected — the card round just opened
-        selectedCardId = null;
-      } else if (newPhase === "move") {
-        // Back to a fresh move round
-        selectedCardId = null; selectedFromCell = null; selectedToCell = null;
-      }
+    // A turn change OR a phase change forces every device to re-evaluate which
+    // screen it should show. This is what makes phones auto-advance into the
+    // new round instead of getting stuck on the previous screen — no manual
+    // refresh needed.
+    if (turnChanged || phaseChanged) {
+      selectedCardId = null;
+      if (newPhase === "move") { selectedFromCell = null; selectedToCell = null; }
       routeToCorrectScreen();
       return;
     }
