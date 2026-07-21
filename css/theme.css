@@ -269,3 +269,21 @@ a { color: var(--blue-core); }
   0%   { transform: translate(0,0) scale(1); opacity: 1; }
   100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
 }
+
+/* ---- Vestinex copyright footer (all screens) ---- */
+.copyright-footer {
+  position: fixed;
+  bottom: 4px;
+  right: 10px;
+  font-family: var(--font-mono, 'Consolas', monospace);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--text-low, #5d7290);
+  opacity: 0.7;
+  z-index: 5;
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 640px) {
+  .copyright-footer { font-size: 8px; bottom: 2px; right: 6px; position: static; text-align: center; margin: 10px 0 6px; opacity: 0.6; }
+}

@@ -17,11 +17,20 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   width: 100vw;
   box-sizing: border-box;
   padding: 4px 8px;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr auto 90px;
+  display: flex;
+  flex-direction: column;
   gap: 3px;
   overflow: hidden;
 }
+/* The board region flexes to fill all leftover height; the meter/roster/
+   scenario strips take only what they need. Using flex (not fixed grid rows)
+   means optional banners that hide/show never steal the board's space. */
+.main-grid {
+  flex: 1 1 auto;
+}
+.log-panel { flex: 0 0 auto; }
+.scenario-grid { flex: 0 0 150px; }
+.header, .vote-strip, .now-playing { flex: 0 0 auto; }
 
 /* ---- Header ---- */
 .header {
@@ -146,6 +155,7 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   gap: 6px;
   min-height: 0;
   overflow: hidden;
+  align-items: stretch;
 }
 @media (max-width: 1000px) {
   .main-grid { grid-template-columns: 1fr; overflow-y: auto; }
@@ -222,15 +232,21 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   justify-content: center;
   padding: 4px;
   min-height: 0;
+  overflow: hidden;
 }
 .board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  /* Fill the available 1fr height, remain square */
-  width: 100%;
-  max-height: calc(100vh - 340px);
+  /* Height-driven square that fills the row but never exceeds the visible
+     area. The vh cap guarantees the whole 8x8 board stays on screen (the
+     bottom scenario-card row + header are reserved), matching the admin board;
+     max-width keeps it square within the centre column. */
+  height: 100%;
+  max-height: calc(100vh - 175px);
   aspect-ratio: 1 / 1;
+  max-width: 100%;
+  margin: 0 auto;
   border-radius: 6px;
   overflow: hidden;
   border: 2px solid var(--line-mid);
