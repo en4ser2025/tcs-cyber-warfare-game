@@ -254,7 +254,14 @@ const Assessment = (function () {
   ul.log li { padding:4px 0; border-bottom:1px solid #f0f3f7; line-height:1.4; }
   ul.log .ts { color:#9aa7b5; font-variant-numeric:tabular-nums; margin-right:6px; }
   footer { margin-top:30px; text-align:center; color:#9aa7b5; font-size:11px; }
-  @media print { body { background:#fff; } .wrap { max-width:none; } }
+  @media print {
+    @page { size: A4; margin: 14mm 12mm; }
+    body { background:#fff; }
+    .wrap { max-width:none; padding: 0; }
+    section.team, .outcome, .logwrap { break-inside: avoid; page-break-inside: avoid; }
+    header.top { break-after: avoid; }
+    ul.log { max-height: none; overflow: visible; }
+  }
 </style></head>
 <body><div class="wrap">
   <header class="top">

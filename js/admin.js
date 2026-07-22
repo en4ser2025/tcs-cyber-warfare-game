@@ -57,6 +57,7 @@
     wireDetectionControls();
     wireOTControls();
     wireReportButton();
+    wirePdfButton();
     wireResolvePanel();
 
     FireState.subscribe((s, err) => {
@@ -1161,8 +1162,33 @@
 
   function renderReportButton() {
     const btn = document.getElementById("download-report-btn");
+    const pdfBtn = document.getElementById("download-pdf-btn");
+    const show = (state && state.phase === "ended" && state.winner);
+    if (btn) btn.style.display = show ? "" : "none";
+    if (pdfBtn) pdfBtn.style.display = show ? "" : "none";
+  }
+
+  function wirePdfButton() {
+    const btn = document.getElementById("download-pdf-btn");
     if (!btn) return;
-    btn.style.display = (state && state.phase === "ended" && state.winner) ? "" : "none";
+    btn.addEventListener("click", () => {
+      if (!state || typeof Assessment === "undefined") return;
+      let html;
+      try { html = Assessment.buildReportHTML(state); }
+      catch (e) { flashHint("Could not generate the report."); return; }
+
+      // Open the report in a new window and trigger the browser's print dialog.
+      // The facilitator chooses "Save as PDF" as the destination. No library
+      // needed, and the report's @media print styles give a clean page.
+      const w = window.open("", "_blank");
+      if (!w) { flashHint("Please allow pop-ups to download the PDF."); return; }
+      // Auto-open the print dialog once the report has rendered.
+      const trigger = `<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>`;
+      w.document.open();
+      w.document.write(html.replace("</body>", trigger + "</body>"));
+      w.document.close();
+      logEvent("system", "Assessment report opened for PDF export.");
+    });
   }
 
   /** Show/hide OT controls and refresh their values based on the current mode/state. */
